@@ -361,12 +361,8 @@ function Body({
         </div>
       );
 
-    case "call": {
-      const def = doc.functions[node.funcId];
-      return (
-        <CallBody funcId={funcId} node={node} />
-      );
-    }
+    case "call":
+      return <CallBody funcId={funcId} node={node} />;
 
     case "if":
       return (
