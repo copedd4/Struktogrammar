@@ -338,8 +338,10 @@ export function StruktoApp() {
                 <button
                   key={fn.id}
                   type="button"
+                  draggable={fn.id !== doc.mainId}
+                  onDragStart={(e) => setPayload(e, { type: "fnref", funcId: fn.id })}
                   onClick={() => (fn.id === doc.mainId ? store.closeTopFunction() : store.openFunction(fn.id))}
-                  className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex items-center gap-2 rounded-md px-2 py-1.5 text-left font-mono text-sm"
+                  className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex cursor-grab items-center gap-2 rounded-md px-2 py-1.5 text-left font-mono text-sm active:cursor-grabbing"
                 >
                   <SquareFunction className="size-4 shrink-0 opacity-80" />
                   <span className="flex-1 truncate">{fn.name}</span>
