@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { createContext, useContext, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, Plus, SquareFunction, Trash2 } from "lucide-react";
 import {
   AlertDialog,
@@ -37,6 +37,9 @@ type DragPayload =
   | { type: "copy"; node: SNode };
 
 const MIME = "application/x-strukto";
+
+/* chain of inlined function ids, used to prevent infinite recursion */
+const InlineChain = createContext<string[]>([]);
 
 export function readPayload(e: React.DragEvent): DragPayload | null {
   const raw = e.dataTransfer.getData(MIME) || e.dataTransfer.getData("text/plain");
