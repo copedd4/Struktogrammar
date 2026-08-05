@@ -62,6 +62,20 @@ export function newFunction(name: string): StruktoFunction {
   return { id: uid(), name, body: [] };
 }
 
+/** Function names are globally unique; returns `name`, or `name2`, `name3`… if taken. */
+export function uniqueFunctionName(doc: StruktoDoc, desired: string, excludeId?: string): string {
+  const base = desired.trim() || "function";
+  const taken = new Set(
+    Object.values(doc.functions)
+      .filter((f) => f.id !== excludeId)
+      .map((f) => f.name.trim().toLowerCase()),
+  );
+  if (!taken.has(base.toLowerCase())) return base;
+  let i = 2;
+  while (taken.has(`${base}${i}`.toLowerCase())) i++;
+  return `${base}${i}`;
+}
+
 /** Resolve a list reference inside a (mutable) function body. */
 export function resolveList(fn: StruktoFunction, key: string): SNode[] | null {
   if (key === ROOT_LIST) return fn.body;

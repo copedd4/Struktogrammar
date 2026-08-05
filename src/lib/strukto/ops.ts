@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import { findNode, makeNode, newCase, newFunction, reId, resolveList } from "./model";
+import { findNode, makeNode, newCase, newFunction, reId, resolveList, uniqueFunctionName } from "./model";
 import { useStrukto } from "./store";
 import type { SNode, StruktoDoc } from "./types";
 
@@ -133,7 +133,8 @@ export function useOps() {
     (name: string, onCreated?: (id: string) => void) => {
       const fn = newFunction(name);
       mutate((d) => {
-        d.functions[fn.id] = fn;
+        fn.name = uniqueFunctionName(d, name);
+        d.functions[fn.id] = { ...fn };
       });
       onCreated?.(fn.id);
       return fn.id;
@@ -144,7 +145,7 @@ export function useOps() {
   const renameFunction = useCallback(
     (funcId: string, name: string) => {
       mutate((d) => {
-        if (d.functions[funcId]) d.functions[funcId].name = name;
+        if (d.functions[funcId]) d.functions[funcId].name = uniqueFunctionName(d, name, funcId);
       });
     },
     [mutate],
@@ -172,7 +173,7 @@ export function useOps() {
   const insertFunctionBlock = useCallback(
     (funcId: string, key: string, index: number, name: string) => {
       mutate((d: StruktoDoc) => {
-        const def = newFunction(name);
+        const def = newFunction(uniqueFunctionName(d, name));
         d.functions[def.id] = def;
         const owner = d.functions[funcId];
         if (!owner) return;

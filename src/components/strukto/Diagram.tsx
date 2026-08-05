@@ -34,6 +34,7 @@ interface Ctx {
 type DragPayload =
   | { type: "new"; kind: BlockKind }
   | { type: "move"; funcId: string; nodeId: string }
+  | { type: "fnref"; funcId: string }
   | { type: "copy"; node: SNode };
 
 const MIME = "application/x-strukto";
@@ -95,6 +96,11 @@ function Gap({ funcId, keyId, index }: Ctx & { keyId: string; index: number }) {
           if (payload.kind === "call")
             ops.insertFunctionBlock(funcId, keyId, index, nextFunctionName(ops.doc.functions));
           else ops.insert(funcId, keyId, index, makeNode(payload.kind));
+        } else if (payload.type === "fnref") {
+          if (payload.funcId === funcId) return;
+          const call = makeNode("call", { funcId: payload.funcId });
+          if (call.kind === "call") call.expanded = true;
+          ops.insert(funcId, keyId, index, call);
         } else if (payload.type === "move" && payload.funcId === funcId) {
           ops.move(funcId, payload.nodeId, keyId, index);
         } else if (payload.type === "copy") {
@@ -365,10 +371,8 @@ function Body({
       return <CallBody funcId={funcId} node={node} />;
 
     case "if":
-
       return (
         <div className="relative">
-          <CollapseButton collapsed={collapsed} onToggle={toggleCollapse} />
           <div className="border-line relative h-16 border-b">
             <svg
               viewBox="0 0 100 100"
@@ -473,7 +477,7 @@ function Body({
       );
 
     case "switch":
-      return <SwitchBody funcId={funcId} node={node} collapsed={collapsed} toggleCollapse={toggleCollapse} />;
+      return <SwitchBody funcId={funcId} node={node} collapsed={collapsed} />;
   }
 }
 
@@ -481,8 +485,7 @@ function SwitchBody({
   funcId,
   node,
   collapsed,
-  toggleCollapse,
-}: Ctx & { node: Extract<SNode, { kind: "switch" }>; collapsed?: boolean | undefined; toggleCollapse: () => void }) {
+}: Ctx & { node: Extract<SNode, { kind: "switch" }>; collapsed?: boolean | undefined }) {
   const ops = useOps();
   const { t } = useI18n();
   const columns: Array<{ c: SwitchCase; isDefault: boolean }> = [
@@ -492,7 +495,6 @@ function SwitchBody({
 
   return (
     <div className="relative">
-      <CollapseButton collapsed={collapsed} onToggle={toggleCollapse} />
       <div className="border-line relative h-12 border-b">
         <svg
           viewBox="0 0 100 100"
@@ -595,15 +597,6 @@ function CallBody({ funcId, node }: Ctx & { node: Extract<SNode, { kind: "call" 
         }}
       >
         <div className="border-line w-2 shrink-0 border-r" />
-        <div className="flex flex-1 items-center gap-2 px-2 py-1">
-          <SquareFunction className="text-primary size-4 shrink-0" />
-          <EditableText
-            value={def?.name ?? t.missingFunction}
-            mono
-            onCommit={(v) => def && ops.renameFunction(def.id, v)}
-          />
-        </div>
-        <div className="border-line w-2 shrink-0 border-l" />
         {def && !recursive ? (
           <button
             type="button"
@@ -615,11 +608,20 @@ function CallBody({ funcId, node }: Ctx & { node: Extract<SNode, { kind: "call" 
             }}
             aria-label={expanded ? t.collapse : t.expand}
             title={expanded ? t.collapse : t.expand}
-            className="text-muted-foreground hover:text-primary absolute top-0.5 right-0.5 z-10 rounded p-0.5"
+            className="text-muted-foreground hover:text-primary z-10 shrink-0 self-start rounded p-0.5"
           >
             {expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
           </button>
         ) : null}
+        <div className="flex flex-1 items-center gap-2 px-2 py-1">
+          <SquareFunction className="text-primary size-4 shrink-0" />
+          <EditableText
+            value={def?.name ?? t.missingFunction}
+            mono
+            onCommit={(v) => def && ops.renameFunction(def.id, v)}
+          />
+        </div>
+        <div className="border-line w-2 shrink-0 border-l" />
       </div>
       {expanded && def ? (
         <div className="border-line flex items-stretch border-t">
