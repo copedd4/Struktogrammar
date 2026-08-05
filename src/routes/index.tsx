@@ -1,24 +1,37 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { StruktoApp } from "@/components/strukto/StruktoApp";
+import { I18nProvider } from "@/lib/strukto/i18n";
+import { StruktoProvider } from "@/lib/strukto/store";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "Struktogramm Editor – Nassi–Shneiderman Diagrams" },
+      {
+        name: "description",
+        content:
+          "Create, edit and export Nassi–Shneiderman structograms: loops, switch-case, nested functions, themes, undo/redo and .stkg projects.",
+      },
+      { property: "og:title", content: "Struktogramm Editor – Nassi–Shneiderman Diagrams" },
+      {
+        property: "og:description",
+        content:
+          "Interactive structogram editor with nested function diagrams, five themes, German/English UI and PNG/SVG/PDF export.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
 function Index() {
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
+    <I18nProvider>
+      <StruktoProvider>
+        <h1 className="sr-only">Struktogramm Editor</h1>
+        <StruktoApp />
+      </StruktoProvider>
+    </I18nProvider>
   );
 }
