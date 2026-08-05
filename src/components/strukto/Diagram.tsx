@@ -23,7 +23,7 @@ import { BlockPicker } from "./BlockPicker";
 import { useI18n } from "@/lib/strukto/i18n";
 import { useOps } from "@/lib/strukto/ops";
 import { useStrukto } from "@/lib/strukto/store";
-import { ROOT_LIST, countNodes, listKey, makeNode, reId, uniqueFunctionName } from "@/lib/strukto/model";
+import { ROOT_LIST, countNodes, listKey, makeNode, reId } from "@/lib/strukto/model";
 import type { BlockKind, SNode, SwitchCase } from "@/lib/strukto/types";
 import { cn } from "@/lib/utils";
 
@@ -597,15 +597,6 @@ function CallBody({ funcId, node }: Ctx & { node: Extract<SNode, { kind: "call" 
         }}
       >
         <div className="border-line w-2 shrink-0 border-r" />
-        <div className="flex flex-1 items-center gap-2 px-2 py-1">
-          <SquareFunction className="text-primary size-4 shrink-0" />
-          <EditableText
-            value={def?.name ?? t.missingFunction}
-            mono
-            onCommit={(v) => def && ops.renameFunction(def.id, v)}
-          />
-        </div>
-        <div className="border-line w-2 shrink-0 border-l" />
         {def && !recursive ? (
           <button
             type="button"
@@ -617,11 +608,20 @@ function CallBody({ funcId, node }: Ctx & { node: Extract<SNode, { kind: "call" 
             }}
             aria-label={expanded ? t.collapse : t.expand}
             title={expanded ? t.collapse : t.expand}
-            className="text-muted-foreground hover:text-primary absolute top-0.5 right-0.5 z-10 rounded p-0.5"
+            className="text-muted-foreground hover:text-primary z-10 shrink-0 self-start rounded p-0.5"
           >
             {expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
           </button>
         ) : null}
+        <div className="flex flex-1 items-center gap-2 px-2 py-1">
+          <SquareFunction className="text-primary size-4 shrink-0" />
+          <EditableText
+            value={def?.name ?? t.missingFunction}
+            mono
+            onCommit={(v) => def && ops.renameFunction(def.id, v)}
+          />
+        </div>
+        <div className="border-line w-2 shrink-0 border-l" />
       </div>
       {expanded && def ? (
         <div className="border-line flex items-stretch border-t">
