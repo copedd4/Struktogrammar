@@ -371,10 +371,8 @@ function Body({
       return <CallBody funcId={funcId} node={node} />;
 
     case "if":
-
       return (
         <div className="relative">
-          <CollapseButton collapsed={collapsed} onToggle={toggleCollapse} />
           <div className="border-line relative h-16 border-b">
             <svg
               viewBox="0 0 100 100"
@@ -479,7 +477,7 @@ function Body({
       );
 
     case "switch":
-      return <SwitchBody funcId={funcId} node={node} collapsed={collapsed} toggleCollapse={toggleCollapse} />;
+      return <SwitchBody funcId={funcId} node={node} collapsed={collapsed} />;
   }
 }
 
@@ -487,8 +485,7 @@ function SwitchBody({
   funcId,
   node,
   collapsed,
-  toggleCollapse,
-}: Ctx & { node: Extract<SNode, { kind: "switch" }>; collapsed?: boolean | undefined; toggleCollapse: () => void }) {
+}: Ctx & { node: Extract<SNode, { kind: "switch" }>; collapsed?: boolean | undefined }) {
   const ops = useOps();
   const { t } = useI18n();
   const columns: Array<{ c: SwitchCase; isDefault: boolean }> = [
@@ -498,7 +495,6 @@ function SwitchBody({
 
   return (
     <div className="relative">
-      <CollapseButton collapsed={collapsed} onToggle={toggleCollapse} />
       <div className="border-line relative h-12 border-b">
         <svg
           viewBox="0 0 100 100"
