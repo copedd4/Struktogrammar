@@ -157,9 +157,35 @@
 /* ---------- Theme variants ---------- */
 
 [data-theme="dark"] {
-  --primary: oklch(0.72 0.14 200);
-  --primary-foreground: oklch(0.16 0.01 264);
-  --ring: oklch(0.72 0.14 200);
+  /* Neutral greyish-black theme */
+  --background: oklch(0.17 0 0);
+  --foreground: oklch(0.93 0 0);
+  --card: oklch(0.22 0 0);
+  --card-foreground: oklch(0.93 0 0);
+  --popover: oklch(0.22 0 0);
+  --popover-foreground: oklch(0.93 0 0);
+  --primary: oklch(0.8 0 0);
+  --primary-foreground: oklch(0.17 0 0);
+  --secondary: oklch(0.27 0 0);
+  --secondary-foreground: oklch(0.93 0 0);
+  --muted: oklch(0.27 0 0);
+  --muted-foreground: oklch(0.7 0 0);
+  --accent: oklch(0.3 0 0);
+  --accent-foreground: oklch(0.95 0 0);
+  --border: oklch(0.34 0 0);
+  --input: oklch(0.34 0 0);
+  --ring: oklch(0.7 0 0);
+  --canvas: oklch(0.14 0 0);
+  --block: oklch(0.21 0 0);
+  --block-head: oklch(0.27 0 0);
+  --line: oklch(0.72 0 0);
+  --note: oklch(0.3 0.03 95);
+  --note-foreground: oklch(0.9 0.04 95);
+  --sidebar: oklch(0.19 0 0);
+  --sidebar-foreground: oklch(0.93 0 0);
+  --sidebar-border: oklch(0.32 0 0);
+  --sidebar-accent: oklch(0.28 0 0);
+  --sidebar-accent-foreground: oklch(0.95 0 0);
 }
 
 [data-theme="eggshell"] {
@@ -225,34 +251,35 @@
 }
 
 [data-theme="siemens"] {
-  --background: oklch(0.98 0.005 200);
-  --foreground: oklch(0.24 0.045 250);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.24 0.045 250);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.24 0.045 250);
-  --primary: oklch(0.52 0.09 195);
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.93 0.02 200);
-  --secondary-foreground: oklch(0.26 0.05 250);
-  --muted: oklch(0.94 0.012 200);
-  --muted-foreground: oklch(0.44 0.03 230);
-  --accent: oklch(0.9 0.045 190);
-  --accent-foreground: oklch(0.25 0.05 220);
-  --border: oklch(0.85 0.02 210);
-  --input: oklch(0.85 0.02 210);
-  --ring: oklch(0.52 0.09 195);
-  --canvas: oklch(0.95 0.012 205);
-  --block: oklch(1 0 0);
-  --block-head: oklch(0.9 0.05 190);
-  --line: oklch(0.34 0.06 240);
-  --note: oklch(0.93 0.04 250);
-  --note-foreground: oklch(0.28 0.06 250);
-  --sidebar: oklch(0.26 0.055 248);
-  --sidebar-foreground: oklch(0.96 0.01 200);
-  --sidebar-border: oklch(0.38 0.05 240);
-  --sidebar-accent: oklch(0.36 0.06 220);
-  --sidebar-accent-foreground: oklch(0.97 0.01 200);
+  /* Dark Siemens: deep petrol-tinted charcoal with signature petrol accent */
+  --background: oklch(0.19 0.018 210);
+  --foreground: oklch(0.94 0.008 200);
+  --card: oklch(0.24 0.02 210);
+  --card-foreground: oklch(0.94 0.008 200);
+  --popover: oklch(0.24 0.02 210);
+  --popover-foreground: oklch(0.94 0.008 200);
+  --primary: oklch(0.72 0.11 190);
+  --primary-foreground: oklch(0.17 0.02 210);
+  --secondary: oklch(0.29 0.025 210);
+  --secondary-foreground: oklch(0.94 0.008 200);
+  --muted: oklch(0.29 0.025 210);
+  --muted-foreground: oklch(0.74 0.02 200);
+  --accent: oklch(0.34 0.04 195);
+  --accent-foreground: oklch(0.95 0.01 200);
+  --border: oklch(0.38 0.03 205);
+  --input: oklch(0.36 0.03 205);
+  --ring: oklch(0.72 0.11 190);
+  --canvas: oklch(0.16 0.016 210);
+  --block: oklch(0.235 0.02 210);
+  --block-head: oklch(0.3 0.035 195);
+  --line: oklch(0.78 0.04 195);
+  --note: oklch(0.31 0.05 250);
+  --note-foreground: oklch(0.9 0.06 250);
+  --sidebar: oklch(0.17 0.018 210);
+  --sidebar-foreground: oklch(0.95 0.01 200);
+  --sidebar-border: oklch(0.34 0.03 205);
+  --sidebar-accent: oklch(0.3 0.04 200);
+  --sidebar-accent-foreground: oklch(0.96 0.01 200);
 }
 
 @utility strukto-block {
