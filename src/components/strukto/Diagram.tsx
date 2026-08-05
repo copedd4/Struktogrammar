@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { createContext, useContext, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, Plus, SquareFunction, Trash2 } from "lucide-react";
 import {
   AlertDialog,
@@ -37,6 +37,9 @@ type DragPayload =
   | { type: "copy"; node: SNode };
 
 const MIME = "application/x-strukto";
+
+/* chain of inlined function ids, used to prevent infinite recursion */
+const InlineChain = createContext<string[]>([]);
 
 export function readPayload(e: React.DragEvent): DragPayload | null {
   const raw = e.dataTransfer.getData(MIME) || e.dataTransfer.getData("text/plain");
@@ -358,31 +361,11 @@ function Body({
         </div>
       );
 
-    case "call": {
-      const def = doc.functions[node.funcId];
-      return (
-        <div
-          className="relative flex items-stretch"
-          onDoubleClick={(e) => {
-            e.stopPropagation();
-            openFunction(node.funcId);
-          }}
-        >
-          <div className="border-line w-2 shrink-0 border-r" />
-          <div className="flex flex-1 items-center gap-2 px-2 py-1">
-            <SquareFunction className="text-primary size-4 shrink-0" />
-            <EditableText
-              value={def?.name ?? t.missingFunction}
-              mono
-              onCommit={(v) => def && ops.renameFunction(def.id, v)}
-            />
-          </div>
-          <div className="border-line w-2 shrink-0 border-l" />
-        </div>
-      );
-    }
+    case "call":
+      return <CallBody funcId={funcId} node={node} />;
 
     case "if":
+
       return (
         <div className="relative">
           <CollapseButton collapsed={collapsed} onToggle={toggleCollapse} />
@@ -586,6 +569,68 @@ function CaseGap({ funcId, switchId, index }: Ctx & { switchId: string; index: n
       >
         <Plus className="size-3" />
       </button>
+    </div>
+  );
+}
+
+/* ------------------------- inline function expansion ---------------------- */
+
+function CallBody({ funcId, node }: Ctx & { node: Extract<SNode, { kind: "call" }> }) {
+  const ops = useOps();
+  const { t } = useI18n();
+  const { doc, openFunction } = useStrukto();
+  const chain = useContext(InlineChain);
+  const def = doc.functions[node.funcId];
+  const recursive = chain.includes(node.funcId);
+  const expanded = !!node.expanded && !!def && !recursive;
+  const nextChain = useMemo(() => [...chain, node.funcId], [chain, node.funcId]);
+
+  return (
+    <div className="relative">
+      <div
+        className="relative flex items-stretch"
+        onDoubleClick={(e) => {
+          e.stopPropagation();
+          openFunction(node.funcId);
+        }}
+      >
+        <div className="border-line w-2 shrink-0 border-r" />
+        <div className="flex flex-1 items-center gap-2 px-2 py-1">
+          <SquareFunction className="text-primary size-4 shrink-0" />
+          <EditableText
+            value={def?.name ?? t.missingFunction}
+            mono
+            onCommit={(v) => def && ops.renameFunction(def.id, v)}
+          />
+        </div>
+        <div className="border-line w-2 shrink-0 border-l" />
+        {def && !recursive ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              ops.update(funcId, node.id, (n) => {
+                if (n.kind === "call") n.expanded = !n.expanded;
+              });
+            }}
+            aria-label={expanded ? t.collapse : t.expand}
+            title={expanded ? t.collapse : t.expand}
+            className="text-muted-foreground hover:text-primary absolute top-0.5 right-0.5 z-10 rounded p-0.5"
+          >
+            {expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+          </button>
+        ) : null}
+      </div>
+      {expanded && def ? (
+        <div className="border-line flex items-stretch border-t">
+          <div className="border-line bg-muted/40 w-2 shrink-0 border-r" />
+          <div className="min-w-max flex-1">
+            <InlineChain.Provider value={nextChain}>
+              <Sequence funcId={def.id} keyId={ROOT_LIST} nodes={def.body} />
+            </InlineChain.Provider>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

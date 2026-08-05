@@ -40,6 +40,7 @@ export interface CallNode {
   id: NodeId;
   funcId: string;
   collapsed?: boolean;
+  expanded?: boolean;
 }
 export interface TerminatorNode {
   kind: "terminator";
