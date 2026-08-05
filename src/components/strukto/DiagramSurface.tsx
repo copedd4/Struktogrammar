@@ -14,7 +14,7 @@ export const DiagramSurface = forwardRef<
   return (
     <div
       ref={ref}
-      style={{ width }}
+      style={{ minWidth: width, width: "max-content", maxWidth: "100%" }}
       className={cn("bg-block border-line shadow-sm", className)}
       onClick={(e) => e.stopPropagation()}
     >

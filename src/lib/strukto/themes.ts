@@ -13,5 +13,5 @@ export const THEME_STORAGE_KEY = "strukto.theme";
 export function applyTheme(id: ThemeId) {
   const root = document.documentElement;
   root.dataset["theme"] = id;
-  root.classList.toggle("dark", id === "dark" || id === "navy");
+  root.classList.toggle("dark", id === "dark" || id === "navy" || id === "siemens");
 }
