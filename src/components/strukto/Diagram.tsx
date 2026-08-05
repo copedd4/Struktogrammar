@@ -268,16 +268,16 @@ export function BlockView({ funcId, node }: Ctx & { node: SNode }) {
 
       {node.kind === "call" ? (
         <AlertDialog open={confirmFn} onOpenChange={setConfirmFn}>
-          <AlertDialogContent>
+          <AlertDialogContent className="max-w-md">
             <AlertDialogHeader>
               <AlertDialogTitle>{t.deleteFunctionTitle}</AlertDialogTitle>
               <AlertDialogDescription>
                 {t.deleteFunctionBody(doc.functions[node.funcId]?.name ?? "?")}
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>{t.cancel}</AlertDialogCancel>
+            <AlertDialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
               <AlertDialogAction
+                className="w-full"
                 onClick={() => {
                   ops.setOrphaned(node.funcId, true);
                   ops.remove(funcId, node.id);
@@ -286,6 +286,7 @@ export function BlockView({ funcId, node }: Ctx & { node: SNode }) {
                 {t.keepDefinition}
               </AlertDialogAction>
               <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90 w-full"
                 onClick={() => {
                   ops.deleteFunctionDefinition(node.funcId);
                   ops.remove(funcId, node.id);
@@ -293,6 +294,7 @@ export function BlockView({ funcId, node }: Ctx & { node: SNode }) {
               >
                 {t.deleteEverything}
               </AlertDialogAction>
+              <AlertDialogCancel className="mt-0 w-full">{t.cancel}</AlertDialogCancel>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
