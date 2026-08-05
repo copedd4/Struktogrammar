@@ -1,0 +1,482 @@
+:root {
+  --font-ui: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+  --radius: 12px;
+  --shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  --transition: 160ms ease;
+  --bg: #eef2f6;
+  --surface: #ffffff;
+  --surface-2: #f7f9fb;
+  --text: #18222c;
+  --text-soft: #51606d;
+  --border: #c8d2dc;
+  --accent: #0f7c90;
+  --accent-2: #1f9bb3;
+  --canvas-grid: rgba(24,34,44,0.05);
+
+  /* SVG diagram block tokens – light theme defaults */
+  --block-bg:          #ffffff;
+  --block-stroke:      #111111;
+  --block-text:        #111111;
+  --block-title:       #0f7c90;
+  --block-cond:        #1f9bb3;
+  --block-term-bg:     #fff8e1;
+  --block-fn-bg:       #e8f5e9;
+  --block-comment-bg:  #f3f0ff;
+  --insert-hint:       rgba(15,124,144,0.18);
+  --insert-hover:      rgba(15,124,144,0.55);
+  --drop-target:       rgba(15,124,144,0.35);
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; font-family: var(--font-ui); background: var(--bg); color: var(--text); }
+button, select, input, textarea { font: inherit; }
+button, select { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.55rem 0.8rem; box-shadow: var(--shadow); }
+input, textarea { width: 100%; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 10px; padding: 0.55rem 0.7rem; }
+
+#app { display: grid; grid-template-rows: auto auto 1fr; height: 100vh; }
+.topbar, .control-strip { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.8rem 1rem; border-bottom: 1px solid var(--border); background: var(--surface); }
+.brand-group { display: flex; align-items: center; gap: 0.9rem; }
+.brand-mark { width: 42px; height: 42px; display: grid; place-items: center; font-weight: 800; background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: white; border-radius: 12px; }
+.topbar h1 { margin: 0; font-size: 1.2rem; }
+.topbar p { margin: 0.15rem 0 0; color: var(--text-soft); font-size: 0.9rem; }
+.toolbar { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.toolbar.grouped label { display: flex; align-items: center; gap: 0.45rem; }
+.workspace { display: grid; grid-template-columns: 280px minmax(0, 1fr) 320px; min-height: 0; }
+.sidebar { overflow: auto; padding: 1rem; border-right: 1px solid var(--border); }
+.right-panel { border-right: none; border-left: 1px solid var(--border); }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; margin-bottom: 1rem; box-shadow: var(--shadow); }
+.panel-header { display: flex; justify-content: space-between; align-items: center; padding: 0.8rem 0.95rem; border-bottom: 1px solid var(--border); }
+.panel-header h2 { margin: 0; font-size: 0.96rem; }
+.block-picker, .function-list, .properties-panel, .validation-panel, .shortcut-panel { padding: 0.9rem; }
+.block-picker { display: grid; gap: 0.55rem; }
+.block-picker-item {
+  display: grid; gap: 0.25rem; text-align: left;
+  cursor: grab;
+  user-select: none;
+  border: 2px dashed transparent;
+  transition: border-color var(--transition), background var(--transition);
+}
+.block-picker-item:active { cursor: grabbing; }
+.block-picker-item.dragging { opacity: 0.45; border-color: var(--accent); }
+.block-picker-item small { color: var(--text-soft); }
+.canvas-shell { display: grid; grid-template-rows: auto 1fr; min-width: 0; min-height: 0; }
+.canvas-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); background: var(--surface); }
+.breadcrumb { display: flex; gap: 0.45rem; align-items: center; flex-wrap: wrap; }
+.crumb { padding: 0.35rem 0.65rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; cursor: pointer; box-shadow: none; }
+.canvas-status { display: flex; gap: 0.8rem; color: var(--text-soft); font-size: 0.9rem; }
+.canvas-viewport { position: relative; overflow: auto; background: linear-gradient(var(--canvas-grid) 1px, transparent 1px), linear-gradient(90deg, var(--canvas-grid) 1px, transparent 1px), var(--bg); background-size: 24px 24px, 24px 24px, auto; padding: 1.2rem; }
+.canvas-content { transform-origin: top left; min-width: 1200px; min-height: 100%; }
+
+/* ── SVG diagram – all colours driven by CSS variables so every theme works ── */
+.svg-render-shell { display: grid; gap: 0.8rem; }
+.diagram-svg { display: block; background: var(--block-bg); border: 2px solid var(--block-stroke); }
+.svg-diagram-frame { fill: var(--block-bg); stroke: var(--block-stroke); stroke-width: 2; }
+
+.svg-fill         { fill: var(--block-bg);         stroke: var(--block-stroke); stroke-width: 2; }
+.svg-fill-term    { fill: var(--block-term-bg);     stroke: var(--block-stroke); stroke-width: 2; }
+.svg-fill-fn      { fill: var(--block-fn-bg);       stroke: var(--block-stroke); stroke-width: 2; }
+.svg-fill-comment { fill: var(--block-comment-bg);  stroke: var(--block-stroke); stroke-width: 1.5; stroke-dasharray: 5 3; }
+
+.svg-line       { stroke: var(--block-stroke); stroke-width: 2; fill: none; }
+.svg-title      { font-size: 13px; font-weight: 700; text-anchor: middle; dominant-baseline: middle; fill: var(--block-title); }
+.svg-title-sm   { font-size: 10px; font-weight: 700; text-anchor: start;  dominant-baseline: middle; fill: var(--block-title); letter-spacing: 0.02em; opacity: 0.85; }
+.svg-text       { font-size: 14px; text-anchor: middle; dominant-baseline: middle; fill: var(--block-text); }
+.svg-small-text { font-size: 12px; text-anchor: middle; dominant-baseline: middle; fill: var(--block-text); }
+.svg-label      { font-size: 11px; font-weight: 700; text-anchor: middle; dominant-baseline: middle; fill: var(--block-cond); }
+.svg-cond-text  { font-size: 13px; text-anchor: middle; dominant-baseline: middle; fill: var(--block-cond); }
+
+.svg-hit { fill: transparent; stroke: transparent; cursor: pointer; }
+.svg-block.selected .svg-fill,
+.svg-block.selected .svg-fill-term,
+.svg-block.selected .svg-fill-fn,
+.svg-block.selected .svg-fill-comment { stroke: var(--accent); stroke-width: 3.5; }
+
+/* Highlight nested children when parent is selected */
+.svg-block.selected .svg-block .svg-fill,
+.svg-block.selected .svg-block .svg-fill-term,
+.svg-block.selected .svg-block .svg-fill-fn,
+.svg-block.selected .svg-block .svg-fill-comment {
+  stroke: var(--accent);
+  stroke-opacity: 0.4;
+  stroke-width: 2.5;
+}
+
+/* Drag handle (foreignObject overlay on block header) */
+.block-drag-fo { overflow: visible; pointer-events: none; }
+.block-drag-handle {
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  background: transparent;
+  pointer-events: all;
+  -webkit-user-drag: element;
+  transition: background var(--transition);
+}
+.block-drag-handle:hover {
+  background: rgba(15, 124, 144, 0.05);
+}
+.block-drag-handle:active { cursor: grabbing; }
+.svg-block.block-dragging { opacity: 0.45; }
+
+/* Centred title variant for If/Else */
+.svg-title-center { text-anchor: middle; }
+
+/* Insert zones — foreignObject div is the interactive layer */
+.svg-insert-line { stroke: transparent; stroke-width: 0; overflow: visible; transition: stroke-width 80ms ease, stroke 80ms ease; }
+
+.insert-drop-fo  { overflow: visible; pointer-events: none; }
+.insert-drop-div {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: all;
+  cursor: crosshair;
+}
+
+/* "+" badge: hidden until hover/drag-over */
+.insert-zone-btn {
+  opacity: 0;
+  transform: scale(0.7);
+  pointer-events: none;
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+.insert-drop-div:hover .insert-zone-btn,
+.insert-drop-div.drag-over-div .insert-zone-btn {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: all;
+}
+
+/* Line appears when hovering the div — use :has() where supported */
+.svg-insert-target:has(.insert-drop-div:hover) .svg-insert-line,
+.svg-insert-target:has(.insert-drop-div.drag-over-div) .svg-insert-line {
+  stroke: var(--accent);
+  stroke-width: 3;
+}
+
+/* Drag-over highlight */
+.insert-drop-div.drag-over-div { outline: 2px solid var(--accent); outline-offset: -2px; }
+.svg-insert-target.drag-over .svg-insert-line { stroke: var(--drop-target); stroke-width: 5; }
+
+/* Insert-type floating menu */
+.insert-type-menu { min-width: 160px; }
+
+.editor-stack { display: grid; gap: 0.4rem; background: rgba(255,255,255,0.75); padding: 0.75rem; border: 1px solid var(--border); border-radius: 14px; }
+.editor-stack.compact { max-width: 520px; }
+.selected-editor { display: grid; gap: 0.45rem; }
+.selected-editor-cases { display: grid; gap: 0.35rem; }
+.editor-two { display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem; }
+.notice, .validation-item, .shortcut-item { padding: 0.65rem 0.75rem; border: 1px solid var(--border); background: var(--surface-2); border-radius: 12px; margin: 0; }
+.validation-item.warn { border-color: #b54708; background: rgba(181,71,8,0.08); }
+.small { padding: 0.3rem 0.5rem; border-radius: 10px; box-shadow: none; }
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: grid; place-items: center; z-index: 1000; }
+.modal { width: min(900px, 90vw); background: var(--bg); border: 1px solid var(--border); border-radius: 18px; overflow: hidden; }
+.modal-header { display: flex; justify-content: space-between; align-items: center; padding: 0.8rem 1rem; background: var(--surface); border-bottom: 1px solid var(--border); }
+.modal-body { padding: 1rem; }
+.context-menu { position: fixed; z-index: 2000; display: grid; min-width: 180px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 18px 45px rgba(15,23,42,0.18); overflow: hidden; }
+.context-menu button { border: 0; border-bottom: 1px solid var(--border); border-radius: 0; box-shadow: none; text-align: left; padding: 0.7rem 0.85rem; background: var(--surface); color: var(--text); }
+.context-menu button:last-child { border-bottom: 0; }
+.context-menu button:hover { background: var(--surface-2); }
+
+/* ════════════════════════════════════════════════════
+   THEMES – each overrides both UI tokens and SVG block tokens
+   ════════════════════════════════════════════════════ */
+
+/* ── Light ── */
+body.theme-light {
+  --bg: #eef2f6; --surface: #ffffff; --surface-2: #f7f9fb;
+  --text: #18222c; --text-soft: #51606d; --border: #c8d2dc;
+  --accent: #0f7c90; --accent-2: #1f9bb3;
+  --canvas-grid: rgba(24,34,44,0.05);
+
+  --block-bg:         #ffffff;
+  --block-stroke:     #111111;
+  --block-text:       #111111;
+  --block-title:      #0f7c90;
+  --block-cond:       #1f9bb3;
+  --block-term-bg:    #fff8e1;
+  --block-fn-bg:      #e8f5e9;
+  --block-comment-bg: #f3f0ff;
+  --insert-hint:      rgba(15,124,144,0.18);
+  --insert-hover:     rgba(15,124,144,0.55);
+  --drop-target:      rgba(15,124,144,0.35);
+}
+
+/* ── Dark ── */
+body.theme-dark {
+  --bg: #11161d; --surface: #1b232d; --surface-2: #24303d;
+  --text: #f4f7fb; --text-soft: #aebbc8; --border: #3d4c5d;
+  --accent: #4cc9f0; --accent-2: #5eead4;
+  --canvas-grid: rgba(255,255,255,0.05);
+
+  --block-bg:         #1e2a38;
+  --block-stroke:     #4cc9f0;
+  --block-text:       #e8f4fb;
+  --block-title:      #5eead4;
+  --block-cond:       #4cc9f0;
+  --block-term-bg:    #2a2010;
+  --block-fn-bg:      #142a1a;
+  --block-comment-bg: #1e1a30;
+  --insert-hint:      rgba(76,201,240,0.18);
+  --insert-hover:     rgba(76,201,240,0.55);
+  --drop-target:      rgba(76,201,240,0.35);
+}
+
+/* ── Eggshell White ── */
+body.theme-eggshell {
+  --bg: #f7f4ec; --surface: #fffdf8; --surface-2: #f3ede0;
+  --text: #2e2a26; --text-soft: #6e6257; --border: #d8ccbb;
+  --accent: #b86fb2; --accent-2: #79b8d1;
+  --canvas-grid: rgba(46,42,38,0.06);
+
+  --block-bg:         #fffdf8;
+  --block-stroke:     #5a4a3a;
+  --block-text:       #2e2a26;
+  --block-title:      #b86fb2;
+  --block-cond:       #79b8d1;
+  --block-term-bg:    #fef9e7;
+  --block-fn-bg:      #f0faf0;
+  --block-comment-bg: #f5f0ff;
+  --insert-hint:      rgba(184,111,178,0.18);
+  --insert-hover:     rgba(184,111,178,0.55);
+  --drop-target:      rgba(184,111,178,0.35);
+}
+
+/* ── Navy Blue Dark ── */
+body.theme-navy {
+  --bg: #0f172a; --surface: #111c34; --surface-2: #172445;
+  --text: #e5edf7; --text-soft: #a6b4ca; --border: #31486f;
+  --accent: #61afef; --accent-2: #98c379;
+  --canvas-grid: rgba(255,255,255,0.04);
+
+  --block-bg:         #172445;
+  --block-stroke:     #61afef;
+  --block-text:       #e5edf7;
+  --block-title:      #98c379;
+  --block-cond:       #61afef;
+  --block-term-bg:    #1a1a30;
+  --block-fn-bg:      #0f2a1a;
+  --block-comment-bg: #1a1040;
+  --insert-hint:      rgba(97,175,239,0.18);
+  --insert-hover:     rgba(97,175,239,0.55);
+  --drop-target:      rgba(97,175,239,0.35);
+}
+
+/* ── Siemens ── */
+body.theme-siemens {
+  --bg: #081923; --surface: #0d2533; --surface-2: #123346;
+  --text: #edf7fa; --text-soft: #b1d5df; --border: #2e5361;
+  --accent: #00c1d5; --accent-2: #009999;
+  --canvas-grid: rgba(255,255,255,0.04);
+
+  --block-bg:         #0d2533;
+  --block-stroke:     #00c1d5;
+  --block-text:       #edf7fa;
+  --block-title:      #00c1d5;
+  --block-cond:       #009999;
+  --block-term-bg:    #0d1f2a;
+  --block-fn-bg:      #0a2218;
+  --block-comment-bg: #0d1e33;
+  --insert-hint:      rgba(0,193,213,0.18);
+  --insert-hover:     rgba(0,193,213,0.55);
+  --drop-target:      rgba(0,193,213,0.35);
+}
+
+/* ── Inline block inputs (foreignObject) ── */
+.block-input {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--block-stroke);
+  border-radius: 0;
+  color: var(--block-text);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  text-align: center;
+  padding: 2px 4px;
+  outline: none;
+  box-shadow: none;
+}
+.block-input:focus {
+  background: rgba(255,255,255,0.15);
+  border-bottom-color: var(--accent);
+}
+.block-select {
+  cursor: pointer;
+  font-size: 12px;
+}
+.block-term-wrap {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+}
+.block-term-wrap .block-input { flex: 1; }
+.block-case-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* Dark-theme input colours */
+body.theme-dark    .block-input { color: var(--block-text); }
+body.theme-eggshell .block-input { color: var(--block-text); }
+body.theme-navy    .block-input { color: var(--block-text); }
+body.theme-siemens .block-input { color: var(--block-text); }
+
+/* ── Function block: expand/collapse toggle button ── */
+.fn-toggle-btn {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  box-shadow: none;
+  opacity: 0.82;
+  transition: opacity var(--transition), background var(--transition);
+}
+.fn-toggle-btn:hover { opacity: 1; background: var(--accent-2); }
+
+/* Expanded function body fill */
+.svg-fn-body {
+  fill: var(--block-fn-bg);
+  stroke: var(--block-stroke);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 3;
+}
+
+/* ── Switch-Case column insert affordance ── */
+.sw-divider-hit {
+  fill: transparent;
+  stroke: none;
+  cursor: col-resize;
+}
+.sw-badge-fo {
+  overflow: visible;
+  pointer-events: none; /* the button inside handles its own events */
+}
+.sw-badge-fo.sw-badge-visible {
+  pointer-events: all;
+}
+.sw-insert-btn {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  background: var(--accent);
+  color: #fff;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.28);
+  cursor: pointer;
+  opacity: 0;
+  transform: scale(0.7);
+  transition: opacity 140ms ease, transform 140ms ease;
+  pointer-events: none;
+}
+/* Show when parent foreignObject has the visible class */
+.sw-badge-fo.sw-badge-visible .sw-insert-btn {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: all;
+}
+.sw-insert-btn:hover {
+  background: var(--accent-2);
+  transform: scale(1.12);
+}
+
+/* Remove the now-unused editor-stack panel */
+.editor-stack { display: none; }
+
+@media (max-width: 1280px) { .workspace { grid-template-columns: 250px minmax(0, 1fr); } .right-panel { display: none; } }
+@media (max-width: 920px)  { .workspace { grid-template-columns: 1fr; } .sidebar { display: none; } .canvas-content { min-width: 800px; } }
+
+/* ── Search bar ── */
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 1rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.search-bar input[type="search"] {
+  max-width: 260px;
+  width: auto;
+  flex: 1 1 160px;
+  padding: 0.3rem 0.6rem;
+  border-radius: 8px;
+}
+.search-bar button { padding: 0.3rem 0.6rem; box-shadow: none; }
+#searchCount { font-size: 0.82rem; color: var(--text-soft); min-width: 3rem; }
+
+/* Block highlight when found by search */
+.search-match         { outline: 2px dashed var(--accent); outline-offset: 2px; }
+.search-match-active  { outline: 3px solid var(--accent); }
+
+/* ── Toast notifications ── */
+.toast {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 9000;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.65rem 1rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 200ms ease, transform 200ms ease;
+  font-size: 0.9rem;
+  max-width: 360px;
+}
+.toast.toast-visible  { opacity: 1; transform: translateY(0); }
+.toast.toast-update   { background: var(--accent); color: #fff; border-color: transparent; }
+
+/* ── Print stylesheet ── */
+@media print {
+  /* Hide all chrome — only the diagram SVG should print */
+  .topbar,
+  .control-strip,
+  .sidebar,
+  .right-panel,
+  .canvas-toolbar,
+  .search-bar,
+  #modalHost,
+  .toast,
+  .context-menu,
+  .insert-type-menu,
+  .block-drag-fo,
+  .insert-drop-fo,
+  .sw-badge-fo,
+  #swUpdateToast        { display: none !important; }
+
+  body, #app            { height: auto; overflow: visible; background: #fff; }
+  .workspace            { display: block; }
+  .canvas-shell         { display: block; }
+  .canvas-viewport      { overflow: visible; background: #fff; padding: 0; }
+  .canvas-content       { transform: none !important; min-width: unset !important; }
+  .diagram-svg          { width: 100%; height: auto; border: none; display: block; }
+
+  @page { margin: 10mm; size: landscape; }
+}

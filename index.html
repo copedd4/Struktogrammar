@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0a2a43" />
+  <title>Struktogramm Editor PWA</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="topbar" role="banner">
+      <div class="brand-group">
+        <div class="brand-mark" aria-hidden="true">S</div>
+        <div>
+          <h1 id="appTitle">Struktogramm Editor</h1>
+          <p id="appSubtitle">Interactive Nassi&ndash;Shneiderman diagrams with nested functions</p>
+        </div>
+      </div>
+      <div class="toolbar primary-actions" role="toolbar" aria-label="File actions">
+        <button data-action="new-project"     aria-label="New project"></button>
+        <button data-action="open-project"    aria-label="Open project"></button>
+        <button data-action="save-project"    aria-label="Save project"></button>
+        <button data-action="save-as-project" aria-label="Save project as"></button>
+        <button data-action="export-svg"      aria-label="Save SVG"></button>
+        <button data-action="export-png"      aria-label="Save PNG"></button>
+        <button data-action="export-pdf"      aria-label="Save PDF"></button>
+      </div>
+    </header>
+
+    <section class="control-strip" role="region" aria-label="Edit controls">
+      <div class="toolbar grouped" role="toolbar" aria-label="Edit actions">
+        <label>
+          <span data-i18n="language"></span>
+          <select id="languageSelect" aria-label="Language"></select>
+        </label>
+        <label>
+          <span data-i18n="theme"></span>
+          <select id="themeSelect" aria-label="Theme"></select>
+        </label>
+        <button data-action="undo"      aria-label="Undo"></button>
+        <button data-action="redo"      aria-label="Redo"></button>
+        <button data-action="duplicate" aria-label="Duplicate selected block"></button>
+        <button data-action="delete"    aria-label="Delete selected block"></button>
+      </div>
+      <div class="toolbar grouped" role="toolbar" aria-label="View actions">
+        <button data-action="zoom-out"            aria-label="Zoom out"></button>
+        <button data-action="zoom-reset"          aria-label="Reset zoom to 100%"></button>
+        <button data-action="zoom-in"             aria-label="Zoom in"></button>
+        <button data-action="zoom-fit"            aria-label="Fit diagram to screen"></button>
+        <button data-action="validate"            aria-label="Validate diagram"></button>
+        <button data-action="search-toggle"       aria-label="Find in diagram"></button>
+        <button data-action="toggle-block-picker" aria-label="Toggle block picker" aria-expanded="true"></button>
+      </div>
+    </section>
+
+    <main class="workspace" role="main">
+      <aside class="sidebar left-panel" aria-label="Block picker and functions">
+        <section class="panel" aria-labelledby="blockPickerHeading">
+          <div class="panel-header">
+            <h2 id="blockPickerHeading" data-i18n="blockPicker"></h2>
+            <button class="small" data-action="toggle-block-picker" aria-label="Collapse block picker" aria-expanded="true"></button>
+          </div>
+          <div id="blockPicker" class="block-picker" role="list" aria-label="Available block types"></div>
+        </section>
+        <section class="panel" aria-labelledby="functionListHeading">
+          <div class="panel-header">
+            <h2 id="functionListHeading" data-i18n="functions"></h2>
+          </div>
+          <div id="functionList" class="function-list" role="list" aria-label="Defined functions"></div>
+        </section>
+      </aside>
+
+      <section class="canvas-shell" aria-label="Diagram canvas">
+        <div class="canvas-toolbar">
+          <nav id="breadcrumb" class="breadcrumb" aria-label="Diagram navigation"></nav>
+          <div class="canvas-status" aria-live="polite">
+            <span id="autosaveStatus"></span>
+            <span id="selectionStatus"></span>
+          </div>
+        </div>
+        <div id="canvasViewport" class="canvas-viewport" tabindex="0" aria-label="Diagram canvas — use arrow keys to navigate blocks">
+          <div id="canvasContent" class="canvas-content"></div>
+        </div>
+      </section>
+
+      <aside class="sidebar right-panel" aria-label="Properties and validation">
+        <section class="panel" aria-labelledby="propertiesHeading">
+          <div class="panel-header">
+            <h2 id="propertiesHeading" data-i18n="properties"></h2>
+          </div>
+          <div id="propertiesPanel" class="properties-panel"></div>
+        </section>
+        <section class="panel" aria-labelledby="validationHeading">
+          <div class="panel-header">
+            <h2 id="validationHeading" data-i18n="validation"></h2>
+          </div>
+          <div id="validationPanel" class="validation-panel" role="status" aria-live="polite"></div>
+        </section>
+        <section class="panel" aria-labelledby="shortcutsHeading">
+          <div class="panel-header">
+            <h2 id="shortcutsHeading" data-i18n="shortcuts"></h2>
+          </div>
+          <div id="shortcutPanel" class="shortcut-panel"></div>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <div id="modalHost" role="region" aria-label="Dialogs"></div>
+  <input id="fileInput" type="file" accept=".stkg,application/json" hidden aria-hidden="true" />
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+{
+  "name": "struktogramm-pwa",
+  "version": "2.1.0",
+  "description": "SVG-rendered Nassi-Shneiderman diagram editor — PWA",
+  "type": "module",
+  "scripts": {
+    "test":           "vitest run",
+    "test:watch":     "vitest",
+    "test:ui":        "vitest --ui",
+    "lint":           "eslint js/ tests/",
+    "lint:fix":       "eslint js/ tests/ --fix",
+    "format":         "prettier --write \"js/**/*.js\" \"tests/**/*.js\"",
+    "format:check":   "prettier --check \"js/**/*.js\" \"tests/**/*.js\"",
+    "typecheck":      "tsc --noEmit"
+  },
+  "devDependencies": {
+    "eslint":                       "^8.57.0",
+    "eslint-plugin-jsdoc":          "^48.2.3",
+    "jsdom":                        "^24.0.0",
+    "prettier":                     "^3.2.5",
+    "typescript":                   "^5.4.0",
+    "vitest":                       "^1.5.0"
+  }
+}
