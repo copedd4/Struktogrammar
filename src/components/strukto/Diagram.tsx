@@ -364,24 +364,7 @@ function Body({
     case "call": {
       const def = doc.functions[node.funcId];
       return (
-        <div
-          className="relative flex items-stretch"
-          onDoubleClick={(e) => {
-            e.stopPropagation();
-            openFunction(node.funcId);
-          }}
-        >
-          <div className="border-line w-2 shrink-0 border-r" />
-          <div className="flex flex-1 items-center gap-2 px-2 py-1">
-            <SquareFunction className="text-primary size-4 shrink-0" />
-            <EditableText
-              value={def?.name ?? t.missingFunction}
-              mono
-              onCommit={(v) => def && ops.renameFunction(def.id, v)}
-            />
-          </div>
-          <div className="border-line w-2 shrink-0 border-l" />
-        </div>
+        <CallBody funcId={funcId} node={node} />
       );
     }
 
