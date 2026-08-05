@@ -416,10 +416,10 @@ function Body({
             <Summary text="…" />
           ) : (
             <div className="flex items-stretch">
-              <div className="border-line min-w-fit flex-1 border-r">
+              <div className="border-line min-w-max flex-1 border-r">
                 <Sequence funcId={funcId} keyId={listKey(node.id, "then")} nodes={node.then} />
               </div>
-              <div className="min-w-fit flex-1">
+              <div className="min-w-max flex-1">
                 <Sequence funcId={funcId} keyId={listKey(node.id, "else")} nodes={node.else} />
               </div>
             </div>
@@ -449,7 +449,7 @@ function Body({
           ) : (
             <div className="flex">
               <div className="w-5 shrink-0" />
-              <div className="border-line min-w-fit flex-1 border-l">
+              <div className="border-line min-w-max flex-1 border-l">
                 <Sequence funcId={funcId} keyId={listKey(node.id, "body")} nodes={node.body} />
               </div>
             </div>
@@ -469,7 +469,7 @@ function Body({
           ) : (
             <div className="flex">
               <div className="w-5 shrink-0" />
-              <div className="border-line min-w-fit flex-1 border-l">
+              <div className="border-line min-w-max flex-1 border-l">
                 <Sequence funcId={funcId} keyId={listKey(node.id, "body")} nodes={node.body} />
               </div>
             </div>
@@ -533,7 +533,7 @@ function SwitchBody({
       ) : (
         <div className="flex items-stretch">
           {columns.map(({ c, isDefault }, i) => (
-            <div key={c.id} className="group/col relative flex min-w-fit flex-1 flex-col">
+            <div key={c.id} className="group/col relative flex min-w-max flex-1 flex-col">
               {i > 0 ? <CaseGap funcId={funcId} switchId={node.id} index={i} /> : null}
               <div
                 className={cn(
