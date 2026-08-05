@@ -23,7 +23,7 @@ import { BlockPicker } from "./BlockPicker";
 import { useI18n } from "@/lib/strukto/i18n";
 import { useOps } from "@/lib/strukto/ops";
 import { useStrukto } from "@/lib/strukto/store";
-import { ROOT_LIST, countNodes, listKey, makeNode, reId } from "@/lib/strukto/model";
+import { ROOT_LIST, countNodes, listKey, makeNode, reId, uniqueFunctionName } from "@/lib/strukto/model";
 import type { BlockKind, SNode, SwitchCase } from "@/lib/strukto/types";
 import { cn } from "@/lib/utils";
 
@@ -34,6 +34,7 @@ interface Ctx {
 type DragPayload =
   | { type: "new"; kind: BlockKind }
   | { type: "move"; funcId: string; nodeId: string }
+  | { type: "fnref"; funcId: string }
   | { type: "copy"; node: SNode };
 
 const MIME = "application/x-strukto";
@@ -95,6 +96,11 @@ function Gap({ funcId, keyId, index }: Ctx & { keyId: string; index: number }) {
           if (payload.kind === "call")
             ops.insertFunctionBlock(funcId, keyId, index, nextFunctionName(ops.doc.functions));
           else ops.insert(funcId, keyId, index, makeNode(payload.kind));
+        } else if (payload.type === "fnref") {
+          if (payload.funcId === funcId) return;
+          const call = makeNode("call", { funcId: payload.funcId });
+          if (call.kind === "call") call.expanded = true;
+          ops.insert(funcId, keyId, index, call);
         } else if (payload.type === "move" && payload.funcId === funcId) {
           ops.move(funcId, payload.nodeId, keyId, index);
         } else if (payload.type === "copy") {
