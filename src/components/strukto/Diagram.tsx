@@ -365,6 +365,7 @@ function Body({
       return <CallBody funcId={funcId} node={node} />;
 
     case "if":
+      /* fallthrough handled below */
       return (
         <div className="relative">
           <CollapseButton collapsed={collapsed} onToggle={toggleCollapse} />
