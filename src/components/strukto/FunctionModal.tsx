@@ -23,8 +23,7 @@ export function FunctionModals() {
             }}
           >
             <DialogContent
-              className="bg-canvas max-h-[85vh] max-w-3xl overflow-auto"
-              style={{ transform: `translate(calc(-50% + ${i * 16}px), calc(-50% + ${i * 16}px))` }}
+              className="bg-canvas max-h-[85vh] w-[min(90vw,44rem)] max-w-none overflow-auto"
             >
               <DialogHeader>
                 <DialogTitle className="font-mono">{fn.name}</DialogTitle>

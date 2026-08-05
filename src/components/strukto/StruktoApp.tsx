@@ -279,7 +279,7 @@ export function StruktoApp() {
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm"><Palette className="size-4" /></Button>
+            <Button variant="ghost" size="sm" aria-label={t.theme}><Palette className="size-4" /></Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>{t.theme}</DropdownMenuLabel>
@@ -295,7 +295,7 @@ export function StruktoApp() {
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm"><Languages className="size-4" /> {lang.toUpperCase()}</Button>
+            <Button variant="ghost" size="sm" aria-label={t.language}><Languages className="size-4" /> {lang.toUpperCase()}</Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuRadioGroup value={lang} onValueChange={(v) => setLang(v as Lang)}>
