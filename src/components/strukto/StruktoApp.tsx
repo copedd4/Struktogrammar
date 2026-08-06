@@ -14,6 +14,9 @@ import {
   LayoutTemplate,
   Save,
   SquareFunction,
+  Trash2,
+  X,
+  FileInput,
   Undo2,
   Redo2,
   ZoomIn,
@@ -74,10 +77,33 @@ export function StruktoApp() {
   const [showTemplates, setShowTemplates] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showCode, setShowCode] = useState(false);
+  const [showFnImport, setShowFnImport] = useState(false);
+  const [deleteFn, setDeleteFn] = useState<string | null>(null);
+  const [pending, setPending] = useState<null | (() => void)>(null);
   const [query, setQuery] = useState("");
   const allRef = useRef<HTMLDivElement>(null);
 
   const { doc, selection } = store;
+
+  /** Run an action, but ask first when there are unsaved changes. */
+  const guard = useCallback(
+    (action: () => void) => {
+      if (store.dirty) setPending(() => action);
+      else action();
+    },
+    [store.dirty],
+  );
+
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!store.dirty) return;
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [store.dirty]);
+
   const activeFuncId = store.openStack.at(-1) ?? doc.mainId;
   const issues = useMemo(() => validate(doc), [doc]);
 
