@@ -43,6 +43,7 @@ interface StoreValue {
   openStack: string[];
   openFunction: (id: string) => void;
   closeTopFunction: () => void;
+  closeFunctionById: (id: string) => void;
   dirty: boolean;
   markSaved: () => void;
   fileName: string | null;
@@ -180,6 +181,10 @@ export function StruktoProvider({ children }: { children: ReactNode }) {
     setOpenStack((s) => (s.includes(id) ? s : [...s, id]));
   }, []);
   const closeTopFunction = useCallback(() => setOpenStack((s) => s.slice(0, -1)), []);
+  const closeFunctionById = useCallback(
+    (id: string) => setOpenStack((s) => s.filter((x) => x !== id)),
+    [],
+  );
 
   const value = useMemo<StoreValue>(
     () => ({
@@ -201,12 +206,13 @@ export function StruktoProvider({ children }: { children: ReactNode }) {
       openStack,
       openFunction,
       closeTopFunction,
+      closeFunctionById,
       dirty,
       markSaved: () => setDirty(false),
       fileName,
       setFileName,
     }),
-    [doc, mutate, replaceDoc, undo, redo, past, future, jumpBack, jumpForward, selection, clipboard, openStack, openFunction, closeTopFunction, dirty, fileName],
+    [doc, mutate, replaceDoc, undo, redo, past, future, jumpBack, jumpForward, selection, clipboard, openStack, openFunction, closeTopFunction, closeFunctionById, dirty, fileName],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
