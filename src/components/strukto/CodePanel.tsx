@@ -95,7 +95,7 @@ export function CodePanel({
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={target === "functions" ? "import" : undefined} defaultValue="generate">
+        <Tabs {...(target === "functions" ? { value: "import" } : {})} defaultValue="generate">
           <TabsList className={cn(target === "functions" && "hidden")}>
             <TabsTrigger value="generate">{t.codeGenerate}</TabsTrigger>
             <TabsTrigger value="import">{t.codeImport}</TabsTrigger>
