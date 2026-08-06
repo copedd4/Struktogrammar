@@ -16,7 +16,6 @@ const terminator = (variant: TerminatorVariant, text = ""): SNode => ({
 });
 const emptyCase = (label: string): SwitchCase => ({ id: uid(), label, body: [] });
 
-const stripComment = (s: string) => s.trim();
 const parens = (s: string) => {
   const a = s.indexOf("(");
   const b = s.lastIndexOf(")");
