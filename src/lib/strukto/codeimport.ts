@@ -404,7 +404,10 @@ export function importCode(src: string, docName = "Imported"): ImportResult {
     main = { id: uid(), name: "main", body: loose.length ? loose : [statement("")] };
     fns.unshift(main);
   } else if (loose.length) {
-    main.body = [...main.body, ...loose.filter((n) => !(n.kind === "call" && n.funcId === main!.id))];
+    main.body = [
+      ...main.body,
+      ...loose.filter((n) => n.kind !== "comment" && !(n.kind === "call" && n.funcId === main!.id)),
+    ];
   }
 
   const doc: StruktoDoc = {
