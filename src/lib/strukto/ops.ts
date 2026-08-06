@@ -245,6 +245,7 @@ export function useOps() {
       doc,
       insert,
       remove,
+      removeKeepChildren,
       update,
       move,
       moveTo,
@@ -259,8 +260,17 @@ export function useOps() {
       setOrphaned,
       insertFunctionBlock,
     }),
-    [doc, insert, remove, update, move, duplicate, moveTo, moveCase, addCase, removeCase, renameCase, createFunction, renameFunction, deleteFunctionDefinition, setOrphaned, insertFunctionBlock],
+    [doc, insert, remove, removeKeepChildren, update, move, duplicate, moveTo, moveCase, addCase, removeCase, renameCase, createFunction, renameFunction, deleteFunctionDefinition, setOrphaned, insertFunctionBlock],
   );
+}
+
+/** Nested blocks directly contained in a container node, in visual order. */
+export function childBlocks(node: SNode): SNode[] {
+  if (node.kind === "if") return [...node.then, ...node.else];
+  if (node.kind === "while" || node.kind === "dowhile" || node.kind === "for") return [...node.body];
+  if (node.kind === "switch")
+    return [...node.cases.flatMap((c) => c.body), ...node.defaultCase.body];
+  return [];
 }
 
 function containsList(node: SNode, list: SNode[]): boolean {
