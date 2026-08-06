@@ -56,7 +56,7 @@ import { useI18n, type Lang } from "@/lib/strukto/i18n";
 import { useStrukto } from "@/lib/strukto/store";
 import { useOps } from "@/lib/strukto/ops";
 import { THEMES, THEME_STORAGE_KEY, applyTheme, type ThemeId } from "@/lib/strukto/themes";
-import { ROOT_LIST, emptyDoc, findNode, locate, makeNode, reId, validate } from "@/lib/strukto/model";
+import { ROOT_LIST, callsFunction, emptyDoc, findNode, locate, makeNode, reId, validate } from "@/lib/strukto/model";
 import { hasHandle, openProject, openRecent, resetHandle, saveProject, saveToHandle } from "@/lib/strukto/fileio";
 import { exportPdf, exportPng, exportSvg } from "@/lib/strukto/exporting";
 import type { BlockKind, SNode } from "@/lib/strukto/types";
