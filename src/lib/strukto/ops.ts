@@ -14,7 +14,7 @@ export function useOps() {
         const list = resolveList(fn, key);
         if (!list) return;
         list.splice(Math.max(0, Math.min(index, list.length)), 0, node);
-      });
+      }, "histInsert");
     },
     [mutate],
   );
@@ -26,7 +26,7 @@ export function useOps() {
         if (!fn) return;
         const hit = findNode(fn.body, nodeId);
         if (hit) hit.list.splice(hit.index, 1);
-      });
+      }, "histDelete");
     },
     [mutate],
   );
@@ -38,7 +38,7 @@ export function useOps() {
         if (!fn) return;
         const hit = findNode(fn.body, nodeId);
         if (hit) patch(hit.node);
-      });
+      }, "histEdit");
     },
     [mutate],
   );
@@ -68,7 +68,7 @@ export function useOps() {
         let i = index;
         if (finalList === hit.list && hit.index < index) i -= 1;
         finalList.splice(Math.max(0, Math.min(i, finalList.length)), 0, node);
-      });
+      }, "histMove");
     },
     [mutate],
   );
@@ -80,7 +80,7 @@ export function useOps() {
         if (!fn) return;
         const hit = findNode(fn.body, nodeId);
         if (hit) hit.list.splice(hit.index + 1, 0, reId(hit.node));
-      });
+      }, "histDuplicate");
     },
     [mutate],
   );
@@ -95,7 +95,7 @@ export function useOps() {
           const label = String.fromCharCode(65 + hit.node.cases.length);
           hit.node.cases.splice(index, 0, newCase(label));
         }
-      });
+      }, "histAddCase");
     },
     [mutate],
   );
@@ -108,7 +108,7 @@ export function useOps() {
         const hit = findNode(fn.body, switchId);
         if (hit && hit.node.kind === "switch")
           hit.node.cases = hit.node.cases.filter((c) => c.id !== caseId);
-      });
+      }, "histRemoveCase");
     },
     [mutate],
   );
@@ -124,7 +124,7 @@ export function useOps() {
           const c = hit.node.cases.find((x) => x.id === caseId);
           if (c) c.label = label;
         }
-      });
+      }, "histRenameCase");
     },
     [mutate],
   );
@@ -146,7 +146,7 @@ export function useOps() {
     (funcId: string, name: string) => {
       mutate((d) => {
         if (d.functions[funcId]) d.functions[funcId].name = uniqueFunctionName(d, name, funcId);
-      });
+      }, "histRenameFunction");
     },
     [mutate],
   );
@@ -155,7 +155,7 @@ export function useOps() {
     (funcId: string) => {
       mutate((d) => {
         delete d.functions[funcId];
-      });
+      }, "histDeleteFunction");
     },
     [mutate],
   );
@@ -164,7 +164,7 @@ export function useOps() {
     (funcId: string, orphaned: boolean) => {
       mutate((d) => {
         if (d.functions[funcId]) d.functions[funcId].orphaned = orphaned;
-      });
+      }, "histDeleteFunction");
     },
     [mutate],
   );
@@ -179,7 +179,49 @@ export function useOps() {
         if (!owner) return;
         const list = resolveList(owner, key);
         list?.splice(index, 0, makeNode("call", { funcId: def.id }));
-      });
+      }, "histInsert");
+    },
+    [mutate],
+  );
+
+
+  /** Move a node into a different function's list (used when reparenting across diagrams). */
+  const moveTo = useCallback(
+    (srcFuncId: string, nodeId: string, dstFuncId: string, key: string, index: number) => {
+      mutate((d) => {
+        const src = d.functions[srcFuncId];
+        const dst = d.functions[dstFuncId];
+        if (!src || !dst) return;
+        const hit = findNode(src.body, nodeId);
+        if (!hit) return;
+        const [node] = hit.list.splice(hit.index, 1);
+        if (!node) return;
+        const list = resolveList(dst, key);
+        if (!list) {
+          hit.list.splice(hit.index, 0, node);
+          return;
+        }
+        list.splice(Math.max(0, Math.min(index, list.length)), 0, node);
+      }, "histMove");
+    },
+    [mutate],
+  );
+
+  /** Reorder switch cases (default always stays last). */
+  const moveCase = useCallback(
+    (funcId: string, switchId: string, caseId: string, toIndex: number) => {
+      mutate((d) => {
+        const fn = d.functions[funcId];
+        if (!fn) return;
+        const hit = findNode(fn.body, switchId);
+        if (!hit || hit.node.kind !== "switch") return;
+        const from = hit.node.cases.findIndex((c) => c.id === caseId);
+        if (from < 0) return;
+        const [c] = hit.node.cases.splice(from, 1);
+        if (!c) return;
+        const target = from < toIndex ? toIndex - 1 : toIndex;
+        hit.node.cases.splice(Math.max(0, Math.min(target, hit.node.cases.length)), 0, c);
+      }, "histReorderCase");
     },
     [mutate],
   );
@@ -191,6 +233,8 @@ export function useOps() {
       remove,
       update,
       move,
+      moveTo,
+      moveCase,
       duplicate,
       addCase,
       removeCase,
@@ -201,7 +245,7 @@ export function useOps() {
       setOrphaned,
       insertFunctionBlock,
     }),
-    [doc, insert, remove, update, move, duplicate, addCase, removeCase, renameCase, createFunction, renameFunction, deleteFunctionDefinition, setOrphaned, insertFunctionBlock],
+    [doc, insert, remove, update, move, duplicate, moveTo, moveCase, addCase, removeCase, renameCase, createFunction, renameFunction, deleteFunctionDefinition, setOrphaned, insertFunctionBlock],
   );
 }
 
