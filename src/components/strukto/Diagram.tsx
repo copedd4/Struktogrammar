@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, Plus, SquareFunction, Trash2 } from "lucide-react";
 import {
   AlertDialog,
@@ -18,10 +18,10 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { EditableText } from "./Editable";
+import { EditableText, EditLock } from "./Editable";
 import { BlockPicker } from "./BlockPicker";
 import { useI18n } from "@/lib/strukto/i18n";
-import { useOps } from "@/lib/strukto/ops";
+import { childBlocks, useOps } from "@/lib/strukto/ops";
 import { useStrukto } from "@/lib/strukto/store";
 import { ROOT_LIST, countNodes, listKey, makeNode, reId } from "@/lib/strukto/model";
 import type { BlockKind, SNode, SwitchCase } from "@/lib/strukto/types";
@@ -189,7 +189,14 @@ export function BlockView({ funcId, node }: Ctx & { node: SNode }) {
   const { t } = useI18n();
   const { selection, setSelection, setClipboard, clipboard, openFunction, doc } = useStrukto();
   const [confirmFn, setConfirmFn] = useState(false);
+  const [confirmChildren, setConfirmChildren] = useState(false);
+  const [editing, setEditing] = useState(false);
   const selected = selection?.nodeId === node.id && selection.funcId === funcId;
+  const editLock = useMemo(() => ({ editing, setEditing }), [editing]);
+
+  useEffect(() => {
+    if (!selected) setEditing(false);
+  }, [selected]);
 
   const collapsed = "collapsed" in node ? node.collapsed : false;
   const toggleCollapse = () =>
@@ -205,9 +212,22 @@ export function BlockView({ funcId, node }: Ctx & { node: SNode }) {
         return;
       }
       if (def) ops.deleteFunctionDefinition(node.funcId);
+      ops.remove(funcId, node.id);
+      return;
+    }
+    if (childBlocks(node).length > 0) {
+      setConfirmChildren(true);
+      return;
     }
     ops.remove(funcId, node.id);
   };
+
+  useEffect(() => {
+    if (!selected) return;
+    const handler = () => requestDelete();
+    window.addEventListener("strukto:request-delete", handler);
+    return () => window.removeEventListener("strukto:request-delete", handler);
+  });
 
   return (
     <>
@@ -222,7 +242,7 @@ export function BlockView({ funcId, node }: Ctx & { node: SNode }) {
               e.stopPropagation();
               setSelection({ funcId, nodeId: node.id });
             }}
-            draggable
+            draggable={!editing}
             onDragStart={(e) => {
               e.stopPropagation();
               setPayload(e, { type: "move", funcId, nodeId: node.id });
@@ -235,14 +255,17 @@ export function BlockView({ funcId, node }: Ctx & { node: SNode }) {
               "border-line bg-block relative -mt-px border text-foreground outline-none",
               "focus-visible:ring-primary/70 focus-visible:z-10 focus-visible:ring-2",
               selected && "ring-primary z-10 ring-2",
+              !editing && "cursor-grab active:cursor-grabbing",
             )}
           >
-            <Body
-              funcId={funcId}
-              node={node}
-              collapsed={collapsed}
-              toggleCollapse={toggleCollapse}
-            />
+            <EditLock.Provider value={editLock}>
+              <Body
+                funcId={funcId}
+                node={node}
+                collapsed={collapsed}
+                toggleCollapse={toggleCollapse}
+              />
+            </EditLock.Provider>
           </div>
         </ContextMenuTrigger>
         <ContextMenuContent className="w-52">
@@ -309,6 +332,30 @@ export function BlockView({ funcId, node }: Ctx & { node: SNode }) {
           </AlertDialogContent>
         </AlertDialog>
       ) : null}
+
+      <AlertDialog open={confirmChildren} onOpenChange={setConfirmChildren}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t.deleteBlockTitle}</AlertDialogTitle>
+            <AlertDialogDescription>{t.deleteBlockBody}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
+            <AlertDialogAction
+              className="w-full"
+              onClick={() => ops.removeKeepChildren(funcId, node.id)}
+            >
+              {t.deleteKeepChildren}
+            </AlertDialogAction>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 w-full"
+              onClick={() => ops.remove(funcId, node.id)}
+            >
+              {t.deleteWithChildren}
+            </AlertDialogAction>
+            <AlertDialogCancel className="mt-0 w-full">{t.cancel}</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
@@ -507,7 +554,7 @@ function SwitchBody({
 
   return (
     <div className="relative">
-      <div className="border-line relative h-12 border-b">
+      <div className="border-line relative h-14 border-b">
         <svg
           viewBox="0 0 100 100"
           preserveAspectRatio="none"
@@ -515,7 +562,7 @@ function SwitchBody({
         >
           <line x1="0" y1="0" x2="100" y2="100" stroke="var(--color-line)" vectorEffect="non-scaling-stroke" />
         </svg>
-        <div className="relative w-1/2 pr-6">
+        <div className="absolute bottom-0 left-0 w-1/2 pr-6">
           <EditableText
             value={node.expr}
             mono
