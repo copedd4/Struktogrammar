@@ -12,9 +12,9 @@
     "format": "prettier --write .",
     "desktop:dev": "bunx --bun vite --config vite.desktop.config.ts",
     "desktop:build": "bunx --bun vite build --config vite.desktop.config.ts",
-    "tauri": "bunx --bun tauri",
-    "tauri:dev": "bunx --bun tauri dev",
-    "tauri:build": "bunx --bun tauri build"
+    "tauri": "bunx @tauri-apps/cli",
+    "tauri:dev": "bunx @tauri-apps/cli dev",
+    "tauri:build": "bunx @tauri-apps/cli build"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
