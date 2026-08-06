@@ -221,8 +221,7 @@ export function StruktoApp() {
         ops.duplicate(selection.funcId, selection.nodeId);
       } else if (e.key === "Delete" || e.key === "Backspace") {
         e.preventDefault();
-        ops.remove(selection.funcId, selection.nodeId);
-        store.setSelection(null);
+        window.dispatchEvent(new CustomEvent("strukto:request-delete"));
       } else if (e.key === "Escape") {
         store.setSelection(null);
       } else if (!mod) {
