@@ -345,11 +345,11 @@ export function StruktoApp() {
             <Button variant="ghost" size="sm">{t.file}</Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
-            <DropdownMenuItem onSelect={handleNew}><FilePlus2 className="size-4" />{t.newProject}</DropdownMenuItem>
-            <DropdownMenuItem onSelect={handleOpen}><FolderOpen className="size-4" />{t.open}</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => guard(handleNew)}><FilePlus2 className="size-4" />{t.newProject}</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => guard(() => void handleOpen())}><FolderOpen className="size-4" />{t.open}</DropdownMenuItem>
             <DropdownMenuItem onSelect={() => handleSave(false)}><Save className="size-4" />{t.save}</DropdownMenuItem>
             <DropdownMenuItem onSelect={() => handleSave(true)}>{t.saveAs}</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => setShowTemplates(true)}>
+            <DropdownMenuItem onSelect={() => guard(() => setShowTemplates(true))}>
               <LayoutTemplate className="size-4" />
               {t.templates}
             </DropdownMenuItem>
@@ -363,7 +363,10 @@ export function StruktoApp() {
                   <DropdownMenuItem disabled>{t.noRecentFiles}</DropdownMenuItem>
                 ) : (
                   recent.map((r) => (
-                    <DropdownMenuItem key={r.name} onSelect={() => handleOpenRecent(r.name)}>
+                    <DropdownMenuItem
+                      key={r.name}
+                      onSelect={() => guard(() => void handleOpenRecent(r.name))}
+                    >
                       {r.name}
                     </DropdownMenuItem>
                   ))
@@ -601,18 +604,44 @@ export function StruktoApp() {
             <p className="mb-2 text-xs font-semibold tracking-wide uppercase opacity-70">{t.functions}</p>
             <div className="grid gap-1">
               {functions.map((fn) => (
-                <button
+                <div
                   key={fn.id}
-                  type="button"
-                  draggable={fn.id !== doc.mainId}
-                  onDragStart={(e) => setPayload(e, { type: "fnref", funcId: fn.id })}
-                  onClick={() => (fn.id === doc.mainId ? store.closeTopFunction() : store.openFunction(fn.id))}
-                  className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex cursor-grab items-center gap-2 rounded-md px-2 py-1.5 text-left font-mono text-sm active:cursor-grabbing"
+                  className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group flex items-center gap-1 rounded-md pr-1"
                 >
-                  <SquareFunction className="size-4 shrink-0 opacity-80" />
-                  <span className="flex-1 truncate">{fn.name}</span>
-                  {fn.orphaned ? <span className="text-[10px] opacity-60">{t.orphaned}</span> : null}
-                </button>
+                  <button
+                    type="button"
+                    draggable={fn.id !== doc.mainId}
+                    onDragStart={(e) => setPayload(e, { type: "fnref", funcId: fn.id })}
+                    onClick={() => (fn.id === doc.mainId ? store.closeTopFunction() : store.openFunction(fn.id))}
+                    className="flex min-w-0 flex-1 cursor-grab items-center gap-2 rounded-md px-2 py-1.5 text-left font-mono text-sm active:cursor-grabbing"
+                  >
+                    <SquareFunction className="size-4 shrink-0 opacity-80" />
+                    <span className="flex-1 truncate">{fn.name}</span>
+                    {fn.orphaned ? <span className="text-[10px] opacity-60">{t.orphaned}</span> : null}
+                  </button>
+                  {store.openStack.includes(fn.id) ? (
+                    <button
+                      type="button"
+                      title={t.closeFunction}
+                      aria-label={t.closeFunction}
+                      onClick={() => store.closeFunctionById(fn.id)}
+                      className="hover:bg-sidebar-border rounded p-1 opacity-60 hover:opacity-100"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  ) : null}
+                  {fn.id !== doc.mainId ? (
+                    <button
+                      type="button"
+                      title={t.deleteFunction}
+                      aria-label={t.deleteFunction}
+                      onClick={() => setDeleteFn(fn.id)}
+                      className="hover:text-destructive rounded p-1 opacity-60 hover:opacity-100"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  ) : null}
+                </div>
               ))}
               <Button
                 variant="outline"
@@ -624,6 +653,10 @@ export function StruktoApp() {
                 }}
               >
                 {t.newFunction}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setShowFnImport(true)}>
+                <FileInput className="size-4" />
+                {t.importCodeFunction}
               </Button>
             </div>
           </div>
