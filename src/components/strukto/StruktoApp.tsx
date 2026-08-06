@@ -79,6 +79,7 @@ export function StruktoApp() {
   const [showCode, setShowCode] = useState(false);
   const [showFnImport, setShowFnImport] = useState(false);
   const [deleteFn, setDeleteFn] = useState<string | null>(null);
+  const [renameFn, setRenameFn] = useState<string | null>(null);
   const [pending, setPending] = useState<null | (() => void)>(null);
   const [query, setQuery] = useState("");
   const allRef = useRef<HTMLDivElement>(null);
