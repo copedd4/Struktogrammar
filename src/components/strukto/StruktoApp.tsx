@@ -9,6 +9,7 @@ import {
   Code2,
   Maximize,
   Palette,
+  Pencil,
   Scan,
   Search,
   LayoutTemplate,
@@ -23,6 +24,11 @@ import {
   ZoomOut,
 } from "lucide-react";
 import { toast } from "sonner";
+
+/** Keep long function names readable in the narrow sidebar. */
+function shortenName(name: string, max = 18): string {
+  return name.length > max ? `${name.slice(0, max - 1)}…` : name;
+}
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
