@@ -179,3 +179,40 @@ This project is open source and available under the [MIT License](LICENSE).
 ---
 
 Built with [Lovable](https://lovable.dev) and synced to GitHub for two-way collaboration.
+
+## Desktop app (Tauri, fully offline)
+
+The editor is 100% client-side, so it can be shipped as a native desktop app with no server and no network access.
+
+### Files involved
+
+| Path | Purpose |
+| --- | --- |
+| `desktop/index.html`, `desktop/main.tsx` | Standalone SPA entry (no SSR, no router) |
+| `vite.desktop.config.ts` | Static build that inlines JS + CSS into **one** HTML file |
+| `src-tauri/` | Tauri v2 shell (Rust), config, capabilities |
+
+### Prerequisites
+
+- Node.js 20+ (or Bun) and project deps installed: `bun install`
+- Rust toolchain: https://rustup.rs
+- Platform deps: see https://tauri.app/start/prerequisites (Windows: WebView2 + MSVC build tools; Linux: `libwebkit2gtk-4.1-dev`, `libgtk-3-dev`, `librsvg2-dev`, `patchelf`; macOS: Xcode CLT)
+- App icons (one time):
+  ```bash
+  bunx tauri icon path/to/icon.png   # writes src-tauri/icons/
+  ```
+
+### Commands
+
+```bash
+bun run desktop:build   # -> desktop/dist/index.html  (single self-contained file)
+bun run tauri:dev       # run the desktop app in dev
+bun run tauri:build     # produce installers/binaries in src-tauri/target/release/bundle
+```
+
+`desktop/dist/index.html` alone is already a working offline app — you can double-click it in any browser. `tauri build` wraps that same file into a native executable.
+
+### Notes
+
+- Saving/opening `.stkg` files uses the File System Access API in browsers; inside the Tauri WebView the download/file-input fallback is used, and the `dialog` + `fs` plugins are already enabled if you want to wire native dialogs later.
+- Everything (themes, autosave, PNG/SVG/PDF export) works without a network connection.
