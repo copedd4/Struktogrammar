@@ -145,6 +145,7 @@ const en = {
   codeImportedFunctions: "Functions added",
   closeFunction: "Close",
   deleteFunction: "Delete function",
+  renameFunction: "Rename function",
   deleteFunctionSideTitle: "Delete this function?",
   deleteFunctionSideBody: (name: string, uses: number) =>
     uses
@@ -303,6 +304,7 @@ const de: Dict = {
   codeImportedFunctions: "Funktionen hinzugefügt",
   closeFunction: "Schließen",
   deleteFunction: "Funktion löschen",
+  renameFunction: "Funktion umbenennen",
   deleteFunctionSideTitle: "Diese Funktion löschen?",
   deleteFunctionSideBody: (name: string, uses: number) =>
     uses
