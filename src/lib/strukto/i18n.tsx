@@ -120,6 +120,20 @@ const en = {
   noResults: "No matches",
   reorderCaseHint: "Drag a case header to reorder",
   keyboardNav: "Arrow keys move between blocks, Enter edits",
+  code: "Code",
+  codeHint: "Generate source code from the diagram, or turn existing code into blocks.",
+  codeGenerate: "Generate code",
+  codeImport: "Import code",
+  codeScopeAll: "All functions",
+  codeScopeCurrent: "Current function only",
+  copyAsCode: "Copy as code",
+  codeCopied: "Code copied to clipboard",
+  codeImportHint:
+    "Paste C, Java, JavaScript or Python. Functions, if/else, loops and switch/match become blocks.",
+  codeImportPlaceholder: "Paste your code here…",
+  codeImportAction: "Replace diagram",
+  codeImported: "Code imported",
+  codeImportFailed: "Could not parse this code",
   exportNote:
     "PNG/SVG/PDF export captures the selected scope. Choose “Full call tree” to append every function diagram.",
 };
@@ -244,6 +258,20 @@ const de: Dict = {
   noResults: "Keine Treffer",
   reorderCaseHint: "Fall-Kopfzeile ziehen, um umzusortieren",
   keyboardNav: "Pfeiltasten wechseln Blöcke, Enter bearbeitet",
+  code: "Code",
+  codeHint: "Quellcode aus dem Diagramm erzeugen oder vorhandenen Code in Blöcke umwandeln.",
+  codeGenerate: "Code erzeugen",
+  codeImport: "Code importieren",
+  codeScopeAll: "Alle Funktionen",
+  codeScopeCurrent: "Nur aktuelle Funktion",
+  copyAsCode: "Als Code kopieren",
+  codeCopied: "Code in die Zwischenablage kopiert",
+  codeImportHint:
+    "C, Java, JavaScript oder Python einfügen. Funktionen, Wenn/Sonst, Schleifen und Fallunterscheidungen werden zu Blöcken.",
+  codeImportPlaceholder: "Code hier einfügen…",
+  codeImportAction: "Diagramm ersetzen",
+  codeImported: "Code importiert",
+  codeImportFailed: "Dieser Code konnte nicht gelesen werden",
   exportNote:
     "PNG/SVG/PDF-Export erfasst den gewählten Umfang. „Gesamter Aufrufbaum“ hängt jedes Funktionsdiagramm an.",
 };

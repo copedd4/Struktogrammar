@@ -6,6 +6,7 @@ import {
   FolderOpen,
   Languages,
   History,
+  Code2,
   Maximize,
   Palette,
   Scan,
@@ -45,6 +46,7 @@ import { clearRecent, listRecent, type RecentFile } from "@/lib/strukto/recent";
 import { Canvas, useCanvasView } from "./Canvas";
 import { DiagramSurface } from "./DiagramSurface";
 import { FunctionModals } from "./FunctionModal";
+import { CodePanel } from "./CodePanel";
 import { PICKER_ITEMS } from "./BlockPicker";
 import { setPayload } from "./Diagram";
 import { useI18n, type Lang } from "@/lib/strukto/i18n";
@@ -71,6 +73,7 @@ export function StruktoApp() {
   const [recent, setRecent] = useState<RecentFile[]>([]);
   const [showTemplates, setShowTemplates] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showCode, setShowCode] = useState(false);
   const [query, setQuery] = useState("");
   const allRef = useRef<HTMLDivElement>(null);
 
@@ -365,6 +368,11 @@ export function StruktoApp() {
             <DropdownMenuItem onSelect={() => runExport("png")}>{t.exportPng}</DropdownMenuItem>
             <DropdownMenuItem onSelect={() => runExport("svg")}>{t.exportSvg}</DropdownMenuItem>
             <DropdownMenuItem onSelect={() => runExport("pdf")}>{t.exportPdf}</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => setShowCode(true)}>
+              <Code2 className="size-4" />
+              {t.code}
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 
@@ -425,6 +433,10 @@ export function StruktoApp() {
             </ul>
           </PopoverContent>
         </Popover>
+
+        <Button variant="ghost" size="sm" onClick={() => setShowCode(true)} title={t.code} aria-label={t.code}>
+          <Code2 className="size-4" />
+        </Button>
 
         <Popover open={showHistory} onOpenChange={setShowHistory}>
           <PopoverTrigger asChild>
@@ -634,6 +646,8 @@ export function StruktoApp() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <CodePanel open={showCode} onOpenChange={setShowCode} activeFuncId={activeFuncId} />
 
       <FunctionModals />
 
