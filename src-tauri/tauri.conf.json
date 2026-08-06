@@ -1,27 +1,27 @@
 {
-  "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Struktogramm Editor",
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "Struktogrammer",
   "version": "0.1.0",
-  "identifier": "io.strukto.editor",
+  "identifier": "com.struktogrammer.ch",
   "build": {
-    "beforeDevCommand": "bun run desktop:dev",
-    "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "bun run desktop:build",
-    "frontendDist": "../desktop/dist"
-  },
+  "frontendDist": "../dist",
+  "devUrl": "http://localhost:8080",
+  "beforeBuildCommand": "bun run build:tauri",
+  "beforeDevCommand": "bun run dev"
+},
   "app": {
     "windows": [
       {
-        "title": "Struktogramm Editor",
-        "width": 1280,
-        "height": 840,
-        "minWidth": 900,
-        "minHeight": 600,
-        "resizable": true
+        "title": "Struktogrammer",
+        "width": 800,
+        "height": 600,
+        "resizable": true,
+        "fullscreen": false,
+	"dragDropEnabled": false
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self' data: blob:"
+      "csp": null
     }
   },
   "bundle": {
@@ -34,16 +34,8 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "fileAssociations": [
-      {
-        "ext": [
-          "stkg"
-        ],
-        "name": "Struktogramm project",
-        "description": "Struktogramm (.stkg) diagram",
-        "role": "Editor",
-        "mimeType": "application/json"
-      }
-    ]
+    "android": {
+      "debugApplicationIdSuffix": ".debug"
+    }
   }
 }
