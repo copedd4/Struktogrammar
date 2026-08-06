@@ -31,6 +31,20 @@ export function useOps() {
     [mutate],
   );
 
+  /** Delete a block but splice its nested children into its place. */
+  const removeKeepChildren = useCallback(
+    (funcId: string, nodeId: string) => {
+      mutate((d) => {
+        const fn = d.functions[funcId];
+        if (!fn) return;
+        const hit = findNode(fn.body, nodeId);
+        if (!hit) return;
+        hit.list.splice(hit.index, 1, ...childBlocks(hit.node));
+      }, "histDelete");
+    },
+    [mutate],
+  );
+
   const update = useCallback(
     (funcId: string, nodeId: string, patch: (n: SNode) => void) => {
       mutate((d) => {
@@ -231,6 +245,7 @@ export function useOps() {
       doc,
       insert,
       remove,
+      removeKeepChildren,
       update,
       move,
       moveTo,
@@ -245,8 +260,17 @@ export function useOps() {
       setOrphaned,
       insertFunctionBlock,
     }),
-    [doc, insert, remove, update, move, duplicate, moveTo, moveCase, addCase, removeCase, renameCase, createFunction, renameFunction, deleteFunctionDefinition, setOrphaned, insertFunctionBlock],
+    [doc, insert, remove, removeKeepChildren, update, move, duplicate, moveTo, moveCase, addCase, removeCase, renameCase, createFunction, renameFunction, deleteFunctionDefinition, setOrphaned, insertFunctionBlock],
   );
+}
+
+/** Nested blocks directly contained in a container node, in visual order. */
+export function childBlocks(node: SNode): SNode[] {
+  if (node.kind === "if") return [...node.then, ...node.else];
+  if (node.kind === "while" || node.kind === "dowhile" || node.kind === "for") return [...node.body];
+  if (node.kind === "switch")
+    return [...node.cases.flatMap((c) => c.body), ...node.defaultCase.body];
+  return [];
 }
 
 function containsList(node: SNode, list: SNode[]): boolean {

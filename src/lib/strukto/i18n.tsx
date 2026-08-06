@@ -63,6 +63,10 @@ const en = {
   emptyCase: "Empty case label",
   missingFunction: "Function reference is missing",
   deleteFunctionTitle: "Delete function block?",
+  deleteBlockTitle: "Delete block with nested content?",
+  deleteBlockBody: "This block contains nested blocks. What should happen to them?",
+  deleteWithChildren: "Delete block and nested blocks",
+  deleteKeepChildren: "Delete block only, keep nested blocks",
   deleteFunctionBody: (name: string) =>
     `"${name}" still contains content. Do you want to keep its definition so you can restore it later?`,
   keepDefinition: "Remove block, keep definition",
@@ -201,6 +205,10 @@ const de: Dict = {
   emptyCase: "Leere Fallbezeichnung",
   missingFunction: "Funktionsreferenz fehlt",
   deleteFunctionTitle: "Funktionsblock löschen?",
+  deleteBlockTitle: "Block mit Unterblöcken löschen?",
+  deleteBlockBody: "Dieser Block enthält verschachtelte Blöcke. Was soll damit geschehen?",
+  deleteWithChildren: "Block und Unterblöcke löschen",
+  deleteKeepChildren: "Nur Block löschen, Unterblöcke behalten",
   deleteFunctionBody: (name: string) =>
     `„${name}“ enthält noch Inhalte. Soll die Definition erhalten bleiben, damit sie später wiederhergestellt werden kann?`,
   keepDefinition: "Block entfernen, Definition behalten",

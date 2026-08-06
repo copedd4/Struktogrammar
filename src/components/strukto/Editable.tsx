@@ -1,5 +1,10 @@
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+
+/** Provided by a block: text fields are read-only until the block is put into edit mode. */
+export const EditLock = createContext<{ editing: boolean; setEditing: (v: boolean) => void } | null>(
+  null,
+);
 
 export function EditableText({
   value,
@@ -19,8 +24,14 @@ export function EditableText({
   invalid?: boolean;
 }) {
   const [draft, setDraft] = useState(value);
+  const lock = useContext(EditLock);
+  const editing = lock ? lock.editing : true;
+  const ref = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => setDraft(value), [value]);
+  useEffect(() => {
+    if (!editing) ref.current?.blur();
+  }, [editing]);
 
   const shared = cn(
     "px-2 py-1 text-sm leading-snug",
@@ -30,7 +41,18 @@ export function EditableText({
   );
 
   return (
-    <div className="relative w-full">
+    <div
+      className="relative w-full"
+      onDoubleClick={(e) => {
+        if (!lock) return;
+        e.stopPropagation();
+        lock.setEditing(true);
+        requestAnimationFrame(() => {
+          ref.current?.focus();
+          ref.current?.select();
+        });
+      }}
+    >
       {/* invisible sizer: gives the field its natural width & height so nothing squishes */}
       <span
         aria-hidden
@@ -39,12 +61,18 @@ export function EditableText({
         {draft || placeholder || " "}
       </span>
       <textarea
+        ref={ref}
         rows={1}
         value={draft}
         placeholder={placeholder}
         spellCheck={false}
+        readOnly={!editing}
+        tabIndex={editing ? 0 : -1}
         onChange={(e) => setDraft(e.target.value)}
-        onBlur={() => draft !== value && onCommit(draft)}
+        onBlur={() => {
+          if (draft !== value) onCommit(draft);
+          lock?.setEditing(false);
+        }}
         onKeyDown={(e) => {
           e.stopPropagation();
           if (e.key === "Enter" && !e.shiftKey) {
@@ -60,6 +88,7 @@ export function EditableText({
           shared,
           "absolute inset-0 h-full w-full resize-none overflow-hidden bg-transparent outline-none",
           "placeholder:text-muted-foreground/60 focus:bg-accent/40 rounded-xs",
+          !editing && "pointer-events-none cursor-default select-none",
           invalid && "placeholder:text-destructive/60",
         )}
       />
