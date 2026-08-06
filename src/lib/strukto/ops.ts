@@ -202,7 +202,12 @@ export function useOps() {
   /** Merge functions from an imported document into the current one. */
   const importFunctions = useCallback(
     (imported: StruktoDoc, onDone?: (id: string | null) => void) => {
-      const ids = Object.keys(imported.functions);
+      const isBlank = (n: SNode): boolean =>
+        (n.kind === "statement" || n.kind === "comment") && !(n.text ?? "").trim();
+      const mainFn = imported.mainId ? imported.functions[imported.mainId] : undefined;
+      const skipMain =
+        !!mainFn && mainFn.name.trim().toLowerCase() === "main" && mainFn.body.every(isBlank);
+      const ids = Object.keys(imported.functions).filter((id) => !(skipMain && id === imported.mainId));
       mutate((d) => {
         for (const id of ids) {
           const fn = imported.functions[id];
@@ -210,7 +215,7 @@ export function useOps() {
           d.functions[id] = { ...fn, name: uniqueFunctionName(d, fn.name) };
         }
       }, "histNewFunction");
-      onDone?.(imported.mainId ?? ids[0] ?? null);
+      onDone?.((skipMain ? null : imported.mainId) ?? ids[0] ?? null);
     },
     [mutate],
   );
