@@ -707,6 +707,83 @@ export function StruktoApp() {
 
       <CodePanel open={showCode} onOpenChange={setShowCode} activeFuncId={activeFuncId} />
 
+      <CodePanel
+        open={showFnImport}
+        onOpenChange={setShowFnImport}
+        activeFuncId={activeFuncId}
+        target="functions"
+      />
+
+      {/* delete a function from the sidebar */}
+      <Dialog open={!!deleteFn} onOpenChange={(v) => !v && setDeleteFn(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t.deleteFunctionSideTitle}</DialogTitle>
+            <DialogDescription>
+              {deleteFn
+                ? t.deleteFunctionSideBody(
+                    doc.functions[deleteFn]?.name ?? "",
+                    callsFunction(doc, deleteFn).length,
+                  )
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2">
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (deleteFn) {
+                  store.closeFunctionById(deleteFn);
+                  ops.deleteFunctionEverywhere(deleteFn);
+                }
+                setDeleteFn(null);
+              }}
+            >
+              {t.deleteFunction}
+            </Button>
+            <Button variant="outline" onClick={() => setDeleteFn(null)}>
+              {t.cancel}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* unsaved-changes guard */}
+      <Dialog open={!!pending} onOpenChange={(v) => !v && setPending(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t.unsavedTitle}</DialogTitle>
+            <DialogDescription>{t.unsavedBody}</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2">
+            <Button
+              onClick={async () => {
+                const action = pending;
+                setPending(null);
+                await handleSave(false);
+                action?.();
+              }}
+            >
+              <Save className="size-4" />
+              {t.saveAndContinue}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                const action = pending;
+                setPending(null);
+                action?.();
+              }}
+            >
+              {t.discardAndContinue}
+            </Button>
+            <Button variant="outline" onClick={() => setPending(null)}>
+              {t.cancel}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <FunctionModals />
 
       {/* offscreen surface for full call-tree export */}
