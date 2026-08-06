@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { ClientOnly, createFileRoute } from "@tanstack/react-router";
 import { StruktoApp } from "@/components/strukto/StruktoApp";
 import { I18nProvider } from "@/lib/strukto/i18n";
 import { StruktoProvider } from "@/lib/strukto/store";
@@ -27,11 +27,16 @@ export const Route = createFileRoute("/")({
 
 function Index() {
   return (
-    <I18nProvider>
-      <StruktoProvider>
-        <h1 className="sr-only">Struktogramm Editor</h1>
-        <StruktoApp />
-      </StruktoProvider>
-    </I18nProvider>
+    <>
+      <h1 className="sr-only">Struktogramm Editor</h1>
+      {/* ids are generated at runtime, so the editor mounts after hydration */}
+      <ClientOnly fallback={<div className="bg-background h-screen" />}>
+        <I18nProvider>
+          <StruktoProvider>
+            <StruktoApp />
+          </StruktoProvider>
+        </I18nProvider>
+      </ClientOnly>
+    </>
   );
 }
