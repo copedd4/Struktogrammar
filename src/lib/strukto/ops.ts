@@ -31,6 +31,20 @@ export function useOps() {
     [mutate],
   );
 
+  /** Delete a block but splice its nested children into its place. */
+  const removeKeepChildren = useCallback(
+    (funcId: string, nodeId: string) => {
+      mutate((d) => {
+        const fn = d.functions[funcId];
+        if (!fn) return;
+        const hit = findNode(fn.body, nodeId);
+        if (!hit) return;
+        hit.list.splice(hit.index, 1, ...childBlocks(hit.node));
+      }, "histDelete");
+    },
+    [mutate],
+  );
+
   const update = useCallback(
     (funcId: string, nodeId: string, patch: (n: SNode) => void) => {
       mutate((d) => {
