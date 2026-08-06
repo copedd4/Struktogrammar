@@ -10,11 +10,11 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "desktop:dev": "vite --config vite.desktop.config.ts",
-    "desktop:build": "vite build --config vite.desktop.config.ts",
-    "tauri": "tauri",
-    "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "desktop:dev": "bunx --bun vite --config vite.desktop.config.ts",
+    "desktop:build": "bunx --bun vite build --config vite.desktop.config.ts",
+    "tauri": "bunx --bun tauri",
+    "tauri:dev": "bunx --bun tauri dev",
+    "tauri:build": "bunx --bun tauri build"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

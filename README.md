@@ -205,10 +205,14 @@ The editor is 100% client-side, so it can be shipped as a native desktop app wit
 ### Commands
 
 ```bash
+bun install             # required once — installs vite & the tauri CLI
 bun run desktop:build   # -> desktop/dist/index.html  (single self-contained file)
 bun run tauri:dev       # run the desktop app in dev
 bun run tauri:build     # produce installers/binaries in src-tauri/target/release/bundle
 ```
+
+> `bun: command not found: vite` simply means dependencies were never installed in
+> that folder — run `bun install` (or `npm install`) first.
 
 `desktop/dist/index.html` alone is already a working offline app — you can double-click it in any browser. `tauri build` wraps that same file into a native executable.
 
