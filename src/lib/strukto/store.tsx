@@ -18,14 +18,24 @@ export interface Selection {
   nodeId: string;
 }
 
+/** A history entry keeps the document *before* an action plus that action's label. */
+export interface HistoryEntry {
+  doc: StruktoDoc;
+  label: string;
+}
+
 interface StoreValue {
   doc: StruktoDoc;
-  mutate: (fn: (draft: StruktoDoc) => void) => void;
+  mutate: (fn: (draft: StruktoDoc) => void, label?: string) => void;
   replaceDoc: (doc: StruktoDoc) => void;
   undo: () => void;
   redo: () => void;
   canUndo: boolean;
   canRedo: boolean;
+  past: HistoryEntry[];
+  future: HistoryEntry[];
+  jumpBack: (index: number) => void;
+  jumpForward: (index: number) => void;
   selection: Selection | null;
   setSelection: (s: Selection | null) => void;
   clipboard: SNode | null;
@@ -43,8 +53,8 @@ const Ctx = createContext<StoreValue | null>(null);
 
 export function StruktoProvider({ children }: { children: ReactNode }) {
   const [doc, setDoc] = useState<StruktoDoc>(() => emptyDoc());
-  const [past, setPast] = useState<StruktoDoc[]>([]);
-  const [future, setFuture] = useState<StruktoDoc[]>([]);
+  const [past, setPast] = useState<HistoryEntry[]>([]);
+  const [future, setFuture] = useState<HistoryEntry[]>([]);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [clipboard, setClipboard] = useState<SNode | null>(null);
   const [openStack, setOpenStack] = useState<string[]>([]);
@@ -81,11 +91,11 @@ export function StruktoProvider({ children }: { children: ReactNode }) {
     return () => clearTimeout(t);
   }, [doc, fileName]);
 
-  const mutate = useCallback((fn: (draft: StruktoDoc) => void) => {
+  const mutate = useCallback((fn: (draft: StruktoDoc) => void, label = "histEdit") => {
     setDoc((current) => {
       const draft = structuredClone(current);
       fn(draft);
-      setPast((p) => [...p.slice(-99), current]);
+      setPast((p) => [...p.slice(-99), { doc: current, label }]);
       setFuture([]);
       setDirty(true);
       return draft;
@@ -94,7 +104,7 @@ export function StruktoProvider({ children }: { children: ReactNode }) {
 
   const replaceDoc = useCallback((next: StruktoDoc) => {
     setDoc((current) => {
-      setPast((p) => [...p.slice(-99), current]);
+      setPast((p) => [...p.slice(-99), { doc: current, label: "histReplace" }]);
       setFuture([]);
       return next;
     });
@@ -108,8 +118,8 @@ export function StruktoProvider({ children }: { children: ReactNode }) {
       if (!p.length) return p;
       const prev = p[p.length - 1]!;
       setDoc((cur) => {
-        setFuture((f) => [cur, ...f]);
-        return prev;
+        setFuture((f) => [{ doc: cur, label: prev.label }, ...f]);
+        return prev.doc;
       });
       setDirty(true);
       return p.slice(0, -1);
@@ -121,11 +131,47 @@ export function StruktoProvider({ children }: { children: ReactNode }) {
       if (!f.length) return f;
       const next = f[0]!;
       setDoc((cur) => {
-        setPast((p) => [...p, cur]);
-        return next;
+        setPast((p) => [...p, { doc: cur, label: next.label }]);
+        return next.doc;
       });
       setDirty(true);
       return f.slice(1);
+    });
+  }, []);
+
+  /** Jump to the state stored at `index` inside `past` (i.e. undo several steps). */
+  const jumpBack = useCallback((index: number) => {
+    setPast((p) => {
+      if (index < 0 || index >= p.length) return p;
+      const target = p[index]!;
+      const undone = p.slice(index);
+      setDoc((cur) => {
+        setFuture((f) => [
+          ...undone.map((e, i) => ({ doc: undone[i + 1]?.doc ?? cur, label: e.label })),
+          ...f,
+        ]);
+        return target.doc;
+      });
+      setDirty(true);
+      return p.slice(0, index);
+    });
+  }, []);
+
+  /** Jump forward `index + 1` redo steps. */
+  const jumpForward = useCallback((index: number) => {
+    setFuture((f) => {
+      if (index < 0 || index >= f.length) return f;
+      const redone = f.slice(0, index + 1);
+      const target = redone[redone.length - 1]!;
+      setDoc((cur) => {
+        setPast((p) => [
+          ...p,
+          ...redone.map((e, i) => ({ doc: i === 0 ? cur : redone[i - 1]!.doc, label: e.label })),
+        ]);
+        return target.doc;
+      });
+      setDirty(true);
+      return f.slice(index + 1);
     });
   }, []);
 
@@ -144,6 +190,10 @@ export function StruktoProvider({ children }: { children: ReactNode }) {
       redo,
       canUndo: past.length > 0,
       canRedo: future.length > 0,
+      past,
+      future,
+      jumpBack,
+      jumpForward,
       selection,
       setSelection,
       clipboard,
@@ -156,7 +206,7 @@ export function StruktoProvider({ children }: { children: ReactNode }) {
       fileName,
       setFileName,
     }),
-    [doc, mutate, replaceDoc, undo, redo, past.length, future.length, selection, clipboard, openStack, openFunction, closeTopFunction, dirty, fileName],
+    [doc, mutate, replaceDoc, undo, redo, past, future, jumpBack, jumpForward, selection, clipboard, openStack, openFunction, closeTopFunction, dirty, fileName],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

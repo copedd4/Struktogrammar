@@ -5,8 +5,12 @@ import {
   FilePlus2,
   FolderOpen,
   Languages,
+  History,
   Maximize,
   Palette,
+  Scan,
+  Search,
+  LayoutTemplate,
   Save,
   SquareFunction,
   Undo2,
@@ -28,6 +32,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  DropdownMenuCheckboxItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+} from "@/components/ui/dropdown-menu";
+import { templates } from "@/lib/strukto/templates";
+import { clearRecent, listRecent, type RecentFile } from "@/lib/strukto/recent";
 import { Canvas, useCanvasView } from "./Canvas";
 import { DiagramSurface } from "./DiagramSurface";
 import { FunctionModals } from "./FunctionModal";
@@ -38,9 +52,9 @@ import { useStrukto } from "@/lib/strukto/store";
 import { useOps } from "@/lib/strukto/ops";
 import { THEMES, THEME_STORAGE_KEY, applyTheme, type ThemeId } from "@/lib/strukto/themes";
 import { ROOT_LIST, emptyDoc, findNode, locate, makeNode, reId, validate } from "@/lib/strukto/model";
-import { openProject, resetHandle, saveProject } from "@/lib/strukto/fileio";
+import { hasHandle, openProject, openRecent, resetHandle, saveProject, saveToHandle } from "@/lib/strukto/fileio";
 import { exportPdf, exportPng, exportSvg } from "@/lib/strukto/exporting";
-import type { BlockKind } from "@/lib/strukto/types";
+import type { BlockKind, SNode } from "@/lib/strukto/types";
 import { cn } from "@/lib/utils";
 
 type Scope = "current" | "all";
@@ -53,6 +67,11 @@ export function StruktoApp() {
   const [theme, setTheme] = useState<ThemeId>("light");
   const [scope, setScope] = useState<Scope>("current");
   const mainRef = useRef<HTMLDivElement>(null);
+  const [diskAutosave, setDiskAutosave] = useState(false);
+  const [recent, setRecent] = useState<RecentFile[]>([]);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [query, setQuery] = useState("");
   const allRef = useRef<HTMLDivElement>(null);
 
   const { doc, selection } = store;
@@ -64,6 +83,17 @@ export function StruktoApp() {
     setTheme(stored);
     applyTheme(stored);
   }, []);
+
+  useEffect(() => setRecent(listRecent()), [store.fileName, store.dirty]);
+
+  /* autosave straight to the opened file once the user granted access */
+  useEffect(() => {
+    if (!diskAutosave || !store.dirty || !hasHandle()) return;
+    const timer = setTimeout(async () => {
+      if (await saveToHandle(doc)) store.markSaved();
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [diskAutosave, doc, store]);
 
   const changeTheme = (id: ThemeId) => {
     setTheme(id);
@@ -86,6 +116,43 @@ export function StruktoApp() {
     [activeFuncId, doc.functions, ops, selection],
   );
 
+  /* ------------------------------- search --------------------------------- */
+
+  const results = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    const out: Array<{ funcId: string; nodeId: string; text: string; fnName: string }> = [];
+    const textOf = (n: SNode) =>
+      "text" in n ? n.text : "cond" in n ? n.cond : "expr" in n ? n.expr : "";
+    const walkNodes = (funcId: string, fnName: string, nodes: SNode[]) => {
+      for (const n of nodes) {
+        const text = textOf(n);
+        if (text && text.toLowerCase().includes(q)) out.push({ funcId, nodeId: n.id, text, fnName });
+        if (n.kind === "if") {
+          walkNodes(funcId, fnName, n.then);
+          walkNodes(funcId, fnName, n.else);
+        } else if (n.kind === "while" || n.kind === "dowhile" || n.kind === "for") {
+          walkNodes(funcId, fnName, n.body);
+        } else if (n.kind === "switch") {
+          n.cases.forEach((c) => walkNodes(funcId, fnName, c.body));
+          walkNodes(funcId, fnName, n.defaultCase.body);
+        }
+      }
+    };
+    Object.values(doc.functions).forEach((fn) => walkNodes(fn.id, fn.name, fn.body));
+    return out.slice(0, 50);
+  }, [doc.functions, query]);
+
+  const jumpTo = (funcId: string, nodeId: string) => {
+    if (funcId !== doc.mainId) store.openFunction(funcId);
+    store.setSelection({ funcId, nodeId });
+    requestAnimationFrame(() => {
+      const el = document.querySelector<HTMLElement>(`[data-block-id="${nodeId}"]`);
+      el?.scrollIntoView({ block: "center", behavior: "smooth" });
+      el?.focus();
+    });
+  };
+
   /* ------------------------------- shortcuts ------------------------------ */
 
   useEffect(() => {
@@ -103,6 +170,30 @@ export function StruktoApp() {
         e.preventDefault();
         store.redo();
         return;
+      }
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        const blocks = Array.from(document.querySelectorAll<HTMLElement>("[data-block-id]")).filter(
+          (el) => el.offsetParent !== null,
+        );
+        if (!blocks.length) return;
+        e.preventDefault();
+        const current = blocks.findIndex((el) => el.dataset["blockId"] === selection?.nodeId);
+        const next =
+          current < 0
+            ? 0
+            : (current + (e.key === "ArrowDown" ? 1 : -1) + blocks.length) % blocks.length;
+        blocks[next]?.focus();
+        return;
+      }
+      if (e.key === "Enter" && selection) {
+        const el = document.querySelector<HTMLElement>(`[data-block-id="${selection.nodeId}"]`);
+        const field = el?.querySelector<HTMLElement>("textarea, input, [contenteditable]");
+        if (field) {
+          e.preventDefault();
+          field.click();
+          field.focus();
+          return;
+        }
       }
       if (!selection) {
         const hit = PICKER_ITEMS.find((i) => i.shortcut?.toLowerCase() === e.key.toLowerCase());
@@ -168,6 +259,21 @@ export function StruktoApp() {
     }
   };
 
+  const handleOpenRecent = async (name: string) => {
+    try {
+      const res = await openRecent(name);
+      if (!res) {
+        toast.error(name);
+        return;
+      }
+      store.replaceDoc(res.doc);
+      store.setFileName(res.name);
+      toast.success(res.name);
+    } catch {
+      toast.error("Invalid .stkg file");
+    }
+  };
+
   const handleNew = () => {
     resetHandle();
     store.replaceDoc(emptyDoc("Untitled"));
@@ -215,6 +321,40 @@ export function StruktoApp() {
             <DropdownMenuItem onSelect={handleOpen}><FolderOpen className="size-4" />{t.open}</DropdownMenuItem>
             <DropdownMenuItem onSelect={() => handleSave(false)}><Save className="size-4" />{t.save}</DropdownMenuItem>
             <DropdownMenuItem onSelect={() => handleSave(true)}>{t.saveAs}</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setShowTemplates(true)}>
+              <LayoutTemplate className="size-4" />
+              {t.templates}
+            </DropdownMenuItem>
+            <DropdownMenuCheckboxItem checked={diskAutosave} onCheckedChange={(v) => setDiskAutosave(!!v)}>
+              {t.autosaveDisk}
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>{t.recentFiles}</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                {recent.length === 0 ? (
+                  <DropdownMenuItem disabled>{t.noRecentFiles}</DropdownMenuItem>
+                ) : (
+                  recent.map((r) => (
+                    <DropdownMenuItem key={r.name} onSelect={() => handleOpenRecent(r.name)}>
+                      {r.name}
+                    </DropdownMenuItem>
+                  ))
+                )}
+                {recent.length ? (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        clearRecent();
+                        setRecent([]);
+                      }}
+                    >
+                      {t.clearRecent}
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
             <DropdownMenuSeparator />
             <DropdownMenuLabel>{t.exportScope}</DropdownMenuLabel>
             <DropdownMenuRadioGroup value={scope} onValueChange={(v) => setScope(v as Scope)}>
@@ -247,8 +387,97 @@ export function StruktoApp() {
         <Button variant="ghost" size="sm" onClick={view.reset} title={t.resetView}>
           <Maximize className="size-4" />
         </Button>
+        <Button variant="ghost" size="sm" onClick={view.fit} title={t.fitToView} aria-label={t.fitToView}>
+          <Scan className="size-4" />
+        </Button>
+
+        <Separator orientation="vertical" className="mx-1 h-5" />
+
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="sm" title={t.search} aria-label={t.search}>
+              <Search className="size-4" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-80">
+            <Input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t.searchPlaceholder}
+            />
+            <ul className="mt-2 max-h-64 space-y-1 overflow-auto text-sm">
+              {query && results.length === 0 ? (
+                <li className="text-muted-foreground">{t.noResults}</li>
+              ) : null}
+              {results.map((r) => (
+                <li key={`${r.funcId}-${r.nodeId}`}>
+                  <button
+                    type="button"
+                    onClick={() => jumpTo(r.funcId, r.nodeId)}
+                    className="hover:bg-accent w-full truncate rounded px-2 py-1 text-left"
+                  >
+                    <span className="text-muted-foreground font-mono text-xs">{r.fnName}</span>{" "}
+                    {r.text}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </PopoverContent>
+        </Popover>
+
+        <Popover open={showHistory} onOpenChange={setShowHistory}>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="sm" title={t.history} aria-label={t.history}>
+              <History className="size-4" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-72">
+            <p className="text-sm font-medium">{t.history}</p>
+            <p className="text-muted-foreground mb-2 text-xs">{t.historyHint}</p>
+            <ol className="max-h-72 space-y-0.5 overflow-auto text-sm">
+              {store.past.map((h, i) => (
+                <li key={`p-${i}`}>
+                  <button
+                    type="button"
+                    onClick={() => store.jumpBack(i)}
+                    className="hover:bg-accent w-full rounded px-2 py-1 text-left"
+                  >
+                    {i === 0 ? t.initialState : t[store.past[i - 1]!.label as keyof typeof t] as string}
+                  </button>
+                </li>
+              ))}
+              <li className="bg-accent text-accent-foreground rounded px-2 py-1 font-medium">
+                {store.past.length
+                  ? (t[store.past.at(-1)!.label as keyof typeof t] as string)
+                  : t.currentState}
+              </li>
+              {store.future.map((h, i) => (
+                <li key={`f-${i}`}>
+                  <button
+                    type="button"
+                    onClick={() => store.jumpForward(i)}
+                    className="hover:bg-accent text-muted-foreground w-full rounded px-2 py-1 text-left"
+                  >
+                    {t[h.label as keyof typeof t] as string}
+                  </button>
+                </li>
+              ))}
+            </ol>
+          </PopoverContent>
+        </Popover>
 
         <div className="flex-1" />
+
+        <span
+          className={cn(
+            "mr-1 rounded px-2 py-0.5 text-xs",
+            store.dirty ? "bg-destructive/15 text-destructive" : "bg-muted text-muted-foreground",
+          )}
+        >
+          {store.fileName ? `${store.fileName} · ` : ""}
+          {store.dirty ? t.unsavedShort : t.savedShort}
+        </span>
 
         <Popover>
           <PopoverTrigger asChild>
@@ -364,6 +593,10 @@ export function StruktoApp() {
 
           <p className="text-[11px] leading-relaxed opacity-60">
             {t.autosaved} · Ctrl/⌘ + wheel = {t.zoomIn}
+            <br />
+            {t.keyboardNav}
+            <br />
+            {t.reorderCaseHint}
           </p>
         </aside>
 
@@ -374,6 +607,33 @@ export function StruktoApp() {
           </div>
         </Canvas>
       </div>
+
+      <Dialog open={showTemplates} onOpenChange={setShowTemplates}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{t.templates}</DialogTitle>
+            <DialogDescription>{t.templateHint}</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2">
+            {templates.map((tpl) => (
+              <button
+                key={tpl.id}
+                type="button"
+                onClick={() => {
+                  resetHandle();
+                  store.replaceDoc(tpl.build());
+                  store.setFileName(null);
+                  setShowTemplates(false);
+                }}
+                className="hover:bg-accent rounded-md border p-3 text-left"
+              >
+                <p className="font-medium">{t[tpl.titleKey]}</p>
+                <p className="text-muted-foreground text-xs">{t[tpl.descKey]}</p>
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <FunctionModals />
 

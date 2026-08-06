@@ -35,7 +35,8 @@ type DragPayload =
   | { type: "new"; kind: BlockKind }
   | { type: "move"; funcId: string; nodeId: string }
   | { type: "fnref"; funcId: string }
-  | { type: "copy"; node: SNode };
+  | { type: "copy"; node: SNode }
+  | { type: "case"; funcId: string; switchId: string; caseId: string };
 
 const MIME = "application/x-strukto";
 
@@ -101,8 +102,9 @@ function Gap({ funcId, keyId, index }: Ctx & { keyId: string; index: number }) {
           const call = makeNode("call", { funcId: payload.funcId });
           if (call.kind === "call") call.expanded = true;
           ops.insert(funcId, keyId, index, call);
-        } else if (payload.type === "move" && payload.funcId === funcId) {
-          ops.move(funcId, payload.nodeId, keyId, index);
+        } else if (payload.type === "move") {
+          if (payload.funcId === funcId) ops.move(funcId, payload.nodeId, keyId, index);
+          else ops.moveTo(payload.funcId, payload.nodeId, funcId, keyId, index);
         } else if (payload.type === "copy") {
           ops.insert(funcId, keyId, index, reId(payload.node));
         }
@@ -213,6 +215,13 @@ export function BlockView({ funcId, node }: Ctx & { node: SNode }) {
         <ContextMenuTrigger asChild>
           <div
             data-selected={selected || undefined}
+            data-block-id={node.id}
+            data-func-id={funcId}
+            tabIndex={0}
+            onFocus={(e) => {
+              e.stopPropagation();
+              setSelection({ funcId, nodeId: node.id });
+            }}
             draggable
             onDragStart={(e) => {
               e.stopPropagation();
@@ -223,7 +232,8 @@ export function BlockView({ funcId, node }: Ctx & { node: SNode }) {
               setSelection({ funcId, nodeId: node.id });
             }}
             className={cn(
-              "border-line bg-block relative -mt-px border text-foreground",
+              "border-line bg-block relative -mt-px border text-foreground outline-none",
+              "focus-visible:ring-primary/70 focus-visible:z-10 focus-visible:ring-2",
               selected && "ring-primary z-10 ring-2",
             )}
           >
@@ -523,9 +533,17 @@ function SwitchBody({
             <div key={c.id} className="group/col relative flex min-w-max flex-1 flex-col">
               {i > 0 ? <CaseGap funcId={funcId} switchId={node.id} index={i} /> : null}
               <div
+                draggable={!isDefault}
+                title={isDefault ? undefined : t.reorderCaseHint}
+                onDragStart={(e) => {
+                  if (isDefault) return;
+                  e.stopPropagation();
+                  setPayload(e, { type: "case", funcId, switchId: node.id, caseId: c.id });
+                }}
                 className={cn(
                   "bg-block-head border-line flex items-center gap-1 border-b",
                   i > 0 && "border-l",
+                  !isDefault && "cursor-grab active:cursor-grabbing",
                 )}
               >
                 <EditableText
@@ -562,8 +580,31 @@ function SwitchBody({
 function CaseGap({ funcId, switchId, index }: Ctx & { switchId: string; index: number }) {
   const ops = useOps();
   const { t } = useI18n();
+  const [over, setOver] = useState(false);
   return (
-    <div className="group/gap absolute -left-2 top-0 bottom-0 z-20 w-4">
+    <div
+      className={cn(
+        "group/gap absolute -left-2 top-0 bottom-0 z-20 w-4",
+        over && "bg-primary/30",
+      )}
+      onDragOver={(e) => {
+        const types = e.dataTransfer.types;
+        if (!types.includes(MIME)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        setOver(true);
+      }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => {
+        setOver(false);
+        const payload = readPayload(e);
+        if (!payload || payload.type !== "case") return;
+        if (payload.switchId !== switchId || payload.funcId !== funcId) return;
+        e.preventDefault();
+        e.stopPropagation();
+        ops.moveCase(funcId, switchId, payload.caseId, index);
+      }}
+    >
       <button
         type="button"
         title={t.addCase}
