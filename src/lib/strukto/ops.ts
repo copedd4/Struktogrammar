@@ -135,7 +135,7 @@ export function useOps() {
       mutate((d) => {
         fn.name = uniqueFunctionName(d, name);
         d.functions[fn.id] = { ...fn };
-      });
+      }, "histNewFunction");
       onCreated?.(fn.id);
       return fn.id;
     },
