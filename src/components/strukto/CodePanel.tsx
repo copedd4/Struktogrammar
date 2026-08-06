@@ -31,7 +31,7 @@ export function CodePanel({
   const code = useMemo(() => {
     try {
       return generateCode(doc, lang, {
-        onlyFuncId: onlyCurrent ? activeFuncId : undefined,
+        ...(onlyCurrent ? { onlyFuncId: activeFuncId } : {}),
         className: doc.name,
       });
     } catch {

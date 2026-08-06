@@ -1,5 +1,5 @@
 import { makeNode, uid, uniqueFunctionName } from "./model";
-import type { SNode, StruktoDoc, StruktoFunction, SwitchCase, TerminatorVariant } from "./types";
+import type { LoopNode, SNode, StruktoDoc, StruktoFunction, SwitchCase, TerminatorVariant } from "./types";
 
 export interface ImportResult {
   doc: StruktoDoc;
@@ -161,13 +161,13 @@ function parseChunk(
     return [node];
   }
   if (/^while\b/.test(tok)) {
-    const node = makeNode("while") as Extract<SNode, { kind: "while" }>;
+    const node = makeNode("while") as LoopNode;
     node.cond = parens(tok);
     node.body = parseBraced(p, names, fns);
     return [node];
   }
   if (/^do\b/.test(tok)) {
-    const node = makeNode("dowhile") as Extract<SNode, { kind: "dowhile" }>;
+    const node = makeNode("dowhile") as LoopNode;
     node.body = parseBraced(p, names, fns);
     const tail = p.toks[p.i];
     if (tail && /^while\b/.test(tail)) {
@@ -177,7 +177,7 @@ function parseChunk(
     return [node];
   }
   if (/^for\b/.test(tok)) {
-    const node = makeNode("for") as Extract<SNode, { kind: "for" }>;
+    const node = makeNode("for") as LoopNode;
     node.cond = parens(tok);
     node.body = parseBraced(p, names, fns);
     return [node];
@@ -317,14 +317,14 @@ function parsePyBlock(
       continue;
     }
     if ((m = /^while\s+(.+):$/.exec(text))) {
-      const node = makeNode("while") as Extract<SNode, { kind: "while" }>;
+      const node = makeNode("while") as LoopNode;
       node.cond = m[1]!.trim();
       node.body = block();
       nodes.push(node);
       continue;
     }
     if ((m = /^for\s+(.+):$/.exec(text))) {
-      const node = makeNode("for") as Extract<SNode, { kind: "for" }>;
+      const node = makeNode("for") as LoopNode;
       node.cond = m[1]!.trim();
       node.body = block();
       nodes.push(node);
