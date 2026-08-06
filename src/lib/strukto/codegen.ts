@@ -79,14 +79,25 @@ function emitNode(n: SNode, lang: CodeLang, doc: StruktoDoc, d: number, out: str
       if (py) {
         out.push(`${p}if ${cond(n.cond)}:`);
         emitNodes(n.then, lang, doc, d + 1, out);
-        if (n.else.length) {
+        if (n.else.length === 1 && n.else[0]!.kind === "if") {
+          const chain: string[] = [];
+          emitNode(n.else[0]!, lang, doc, d, chain);
+          chain[0] = chain[0]!.replace(/^(\s*)if /, "$1elif ");
+          out.push(...chain);
+        } else if (n.else.length) {
           out.push(`${p}else:`);
           emitNodes(n.else, lang, doc, d + 1, out);
         }
       } else {
         out.push(`${p}if (${cond(n.cond)}) {`);
         emitNodes(n.then, lang, doc, d + 1, out);
-        if (n.else.length) {
+        if (n.else.length === 1 && n.else[0]!.kind === "if") {
+          const chain: string[] = [];
+          emitNode(n.else[0]!, lang, doc, d, chain);
+          chain[0] = chain[0]!.replace(/^(\s*)if /, "$1} else if ");
+          out.push(...chain);
+          break;
+        } else if (n.else.length) {
           out.push(`${p}} else {`);
           emitNodes(n.else, lang, doc, d + 1, out);
         }

@@ -142,7 +142,7 @@ function parseChunk(
   const tok = p.toks[p.i];
   if (tok === undefined) return "stop";
   if (tok === "}") return "stop";
-  if (/^(case\s+.+:|default\s*:)$/.test(tok)) return "stop";
+  if (/^(case\s+[^:]+:|default\s*:)/.test(tok)) return "stop";
   p.i++;
 
   if (tok === "{") {
@@ -192,16 +192,21 @@ function parseChunk(
       let target: SwitchCase | null = null;
       while (p.i < p.toks.length && p.toks[p.i] !== "}") {
         const t = p.toks[p.i]!;
-        const c = /^case\s+(.+?)\s*:$/.exec(t);
+        const c = /^case\s+([^:]+):\s*(.*)$/.exec(t);
         if (c) {
-          target = emptyCase(c[1]!);
+          target = emptyCase(c[1]!.trim());
           node.cases.push(target);
-          p.i++;
+          const rest = (c[2] ?? "").trim();
+          if (rest) p.toks.splice(p.i, 1, rest);
+          else p.i++;
           continue;
         }
-        if (/^default\s*:$/.test(t)) {
+        const dm = /^default\s*:\s*(.*)$/.exec(t);
+        if (dm) {
           target = node.defaultCase;
-          p.i++;
+          const rest = (dm[1] ?? "").trim();
+          if (rest) p.toks.splice(p.i, 1, rest);
+          else p.i++;
           continue;
         }
         const before = p.i;
