@@ -9,19 +9,24 @@ import { CODE_LANGS, generateCode, type CodeLang } from "@/lib/strukto/codegen";
 import { importCode } from "@/lib/strukto/codeimport";
 import { useI18n } from "@/lib/strukto/i18n";
 import { useStrukto } from "@/lib/strukto/store";
+import { useOps } from "@/lib/strukto/ops";
 import { cn } from "@/lib/utils";
 
 export function CodePanel({
   open,
   onOpenChange,
   activeFuncId,
+  target = "document",
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   activeFuncId: string;
+  /** "document" replaces the whole diagram, "functions" adds the parsed code as new functions. */
+  target?: "document" | "functions";
 }) {
   const { t } = useI18n();
   const store = useStrukto();
+  const ops = useOps();
   const { doc } = store;
   const [lang, setLang] = useState<CodeLang>("python");
   const [onlyCurrent, setOnlyCurrent] = useState(false);
@@ -60,9 +65,18 @@ export function CodePanel({
   const runImport = () => {
     try {
       const { doc: next } = importCode(source, doc.name || "Imported");
-      store.replaceDoc(next);
-      onOpenChange(false);
-      toast.success(t.codeImported);
+      if (target === "functions") {
+        ops.importFunctions(next, (id) => {
+          if (id) store.openFunction(id);
+        });
+        onOpenChange(false);
+        setSource("");
+        toast.success(t.codeImportedFunctions);
+      } else {
+        store.replaceDoc(next);
+        onOpenChange(false);
+        toast.success(t.codeImported);
+      }
     } catch {
       toast.error(t.codeImportFailed);
     }
@@ -76,11 +90,13 @@ export function CodePanel({
             <Code2 className="size-4" />
             {t.code}
           </DialogTitle>
-          <DialogDescription>{t.codeHint}</DialogDescription>
+          <DialogDescription>
+            {target === "functions" ? t.codeImportFunctionHint : t.codeHint}
+          </DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue="generate">
-          <TabsList>
+        <Tabs value={target === "functions" ? "import" : undefined} defaultValue="generate">
+          <TabsList className={cn(target === "functions" && "hidden")}>
             <TabsTrigger value="generate">{t.codeGenerate}</TabsTrigger>
             <TabsTrigger value="import">{t.codeImport}</TabsTrigger>
           </TabsList>
@@ -128,7 +144,9 @@ export function CodePanel({
           </TabsContent>
 
           <TabsContent value="import" className="space-y-3">
-            <p className="text-muted-foreground text-xs">{t.codeImportHint}</p>
+            <p className="text-muted-foreground text-xs">
+              {target === "functions" ? t.codeImportFunctionHint : t.codeImportHint}
+            </p>
             <Textarea
               value={source}
               onChange={(e) => setSource(e.target.value)}
@@ -142,7 +160,7 @@ export function CodePanel({
               </Button>
               <Button size="sm" disabled={!source.trim()} onClick={runImport}>
                 <FileInput className="size-4" />
-                {t.codeImportAction}
+                {target === "functions" ? t.importAsFunction : t.codeImportAction}
               </Button>
             </div>
           </TabsContent>
