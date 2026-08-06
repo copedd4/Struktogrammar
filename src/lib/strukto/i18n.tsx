@@ -138,6 +138,22 @@ const en = {
   codeImportAction: "Replace diagram",
   codeImported: "Code imported",
   codeImportFailed: "Could not parse this code",
+  importCodeFunction: "Import code…",
+  importAsFunction: "Add as function(s)",
+  codeImportFunctionHint:
+    "Paste code — each function becomes its own diagram and is added to this project without replacing it.",
+  codeImportedFunctions: "Functions added",
+  closeFunction: "Close",
+  deleteFunction: "Delete function",
+  deleteFunctionSideTitle: "Delete this function?",
+  deleteFunctionSideBody: (name: string, uses: number) =>
+    uses
+      ? `"${name}" is used by ${uses} call block(s). Deleting removes the definition and those blocks.`
+      : `"${name}" and its diagram will be deleted.`,
+  unsavedTitle: "Unsaved changes",
+  unsavedBody: "Your current diagram has unsaved changes. Continue without saving?",
+  saveAndContinue: "Save and continue",
+  discardAndContinue: "Continue without saving",
   exportNote:
     "PNG/SVG/PDF export captures the selected scope. Choose “Full call tree” to append every function diagram.",
 };
@@ -280,6 +296,22 @@ const de: Dict = {
   codeImportAction: "Diagramm ersetzen",
   codeImported: "Code importiert",
   codeImportFailed: "Dieser Code konnte nicht gelesen werden",
+  importCodeFunction: "Code importieren…",
+  importAsFunction: "Als Funktion(en) hinzufügen",
+  codeImportFunctionHint:
+    "Code einfügen – jede Funktion wird ein eigenes Diagramm und wird zum Projekt hinzugefügt, ohne es zu ersetzen.",
+  codeImportedFunctions: "Funktionen hinzugefügt",
+  closeFunction: "Schließen",
+  deleteFunction: "Funktion löschen",
+  deleteFunctionSideTitle: "Diese Funktion löschen?",
+  deleteFunctionSideBody: (name: string, uses: number) =>
+    uses
+      ? `„${name}“ wird von ${uses} Aufrufblock/-blöcken verwendet. Beim Löschen werden Definition und diese Blöcke entfernt.`
+      : `„${name}“ und das zugehörige Diagramm werden gelöscht.`,
+  unsavedTitle: "Ungespeicherte Änderungen",
+  unsavedBody: "Das aktuelle Diagramm hat ungespeicherte Änderungen. Ohne Speichern fortfahren?",
+  saveAndContinue: "Speichern und fortfahren",
+  discardAndContinue: "Ohne Speichern fortfahren",
   exportNote:
     "PNG/SVG/PDF-Export erfasst den gewählten Umfang. „Gesamter Aufrufbaum“ hängt jedes Funktionsdiagramm an.",
 };
