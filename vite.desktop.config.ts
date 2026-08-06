@@ -1,7 +1,7 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
-import tsconfigPaths from "vite-tsconfig-paths";
 import { viteSingleFile } from "vite-plugin-singlefile";
 
 // Standalone offline build used by Tauri.
@@ -9,7 +9,10 @@ import { viteSingleFile } from "vite-plugin-singlefile";
 export default defineConfig({
   root: "desktop",
   base: "./",
-  plugins: [react(), tailwindcss(), tsconfigPaths({ root: "." }), viteSingleFile()],
+  plugins: [react(), tailwindcss(), viteSingleFile()],
+  resolve: {
+    alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
+  },
   build: {
     outDir: "dist",
     emptyOutDir: true,
