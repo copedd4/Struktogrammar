@@ -199,6 +199,51 @@ export function useOps() {
   );
 
 
+  /** Merge functions from an imported document into the current one. */
+  const importFunctions = useCallback(
+    (imported: StruktoDoc, onDone?: (id: string | null) => void) => {
+      const ids = Object.keys(imported.functions);
+      mutate((d) => {
+        for (const id of ids) {
+          const fn = imported.functions[id];
+          if (!fn) continue;
+          d.functions[id] = { ...fn, name: uniqueFunctionName(d, fn.name) };
+        }
+      }, "histNewFunction");
+      onDone?.(imported.mainId ?? ids[0] ?? null);
+    },
+    [mutate],
+  );
+
+  /** Delete a function definition and every call block that references it. */
+  const deleteFunctionEverywhere = useCallback(
+    (funcId: string) => {
+      mutate((d) => {
+        delete d.functions[funcId];
+        const purge = (list: SNode[]) => {
+          for (let i = list.length - 1; i >= 0; i--) {
+            const n = list[i]!;
+            if (n.kind === "call" && n.funcId === funcId) {
+              list.splice(i, 1);
+              continue;
+            }
+            if (n.kind === "if") {
+              purge(n.then);
+              purge(n.else);
+            } else if (n.kind === "while" || n.kind === "dowhile" || n.kind === "for") {
+              purge(n.body);
+            } else if (n.kind === "switch") {
+              n.cases.forEach((c) => purge(c.body));
+              purge(n.defaultCase.body);
+            }
+          }
+        };
+        Object.values(d.functions).forEach((fn) => purge(fn.body));
+      }, "histDeleteFunction");
+    },
+    [mutate],
+  );
+
   /** Move a node into a different function's list (used when reparenting across diagrams). */
   const moveTo = useCallback(
     (srcFuncId: string, nodeId: string, dstFuncId: string, key: string, index: number) => {
@@ -257,10 +302,12 @@ export function useOps() {
       createFunction,
       renameFunction,
       deleteFunctionDefinition,
+      deleteFunctionEverywhere,
+      importFunctions,
       setOrphaned,
       insertFunctionBlock,
     }),
-    [doc, insert, remove, removeKeepChildren, update, move, duplicate, moveTo, moveCase, addCase, removeCase, renameCase, createFunction, renameFunction, deleteFunctionDefinition, setOrphaned, insertFunctionBlock],
+    [doc, insert, remove, removeKeepChildren, update, move, duplicate, moveTo, moveCase, addCase, removeCase, renameCase, createFunction, renameFunction, deleteFunctionDefinition, deleteFunctionEverywhere, importFunctions, setOrphaned, insertFunctionBlock],
   );
 }
 

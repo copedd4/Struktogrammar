@@ -14,6 +14,9 @@ import {
   LayoutTemplate,
   Save,
   SquareFunction,
+  Trash2,
+  X,
+  FileInput,
   Undo2,
   Redo2,
   ZoomIn,
@@ -53,7 +56,7 @@ import { useI18n, type Lang } from "@/lib/strukto/i18n";
 import { useStrukto } from "@/lib/strukto/store";
 import { useOps } from "@/lib/strukto/ops";
 import { THEMES, THEME_STORAGE_KEY, applyTheme, type ThemeId } from "@/lib/strukto/themes";
-import { ROOT_LIST, emptyDoc, findNode, locate, makeNode, reId, validate } from "@/lib/strukto/model";
+import { ROOT_LIST, callsFunction, emptyDoc, findNode, locate, makeNode, reId, validate } from "@/lib/strukto/model";
 import { hasHandle, openProject, openRecent, resetHandle, saveProject, saveToHandle } from "@/lib/strukto/fileio";
 import { exportPdf, exportPng, exportSvg } from "@/lib/strukto/exporting";
 import type { BlockKind, SNode } from "@/lib/strukto/types";
@@ -74,10 +77,33 @@ export function StruktoApp() {
   const [showTemplates, setShowTemplates] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showCode, setShowCode] = useState(false);
+  const [showFnImport, setShowFnImport] = useState(false);
+  const [deleteFn, setDeleteFn] = useState<string | null>(null);
+  const [pending, setPending] = useState<null | (() => void)>(null);
   const [query, setQuery] = useState("");
   const allRef = useRef<HTMLDivElement>(null);
 
   const { doc, selection } = store;
+
+  /** Run an action, but ask first when there are unsaved changes. */
+  const guard = useCallback(
+    (action: () => void) => {
+      if (store.dirty) setPending(() => action);
+      else action();
+    },
+    [store.dirty],
+  );
+
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!store.dirty) return;
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [store.dirty]);
+
   const activeFuncId = store.openStack.at(-1) ?? doc.mainId;
   const issues = useMemo(() => validate(doc), [doc]);
 
@@ -319,11 +345,11 @@ export function StruktoApp() {
             <Button variant="ghost" size="sm">{t.file}</Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
-            <DropdownMenuItem onSelect={handleNew}><FilePlus2 className="size-4" />{t.newProject}</DropdownMenuItem>
-            <DropdownMenuItem onSelect={handleOpen}><FolderOpen className="size-4" />{t.open}</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => guard(handleNew)}><FilePlus2 className="size-4" />{t.newProject}</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => guard(() => void handleOpen())}><FolderOpen className="size-4" />{t.open}</DropdownMenuItem>
             <DropdownMenuItem onSelect={() => handleSave(false)}><Save className="size-4" />{t.save}</DropdownMenuItem>
             <DropdownMenuItem onSelect={() => handleSave(true)}>{t.saveAs}</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => setShowTemplates(true)}>
+            <DropdownMenuItem onSelect={() => guard(() => setShowTemplates(true))}>
               <LayoutTemplate className="size-4" />
               {t.templates}
             </DropdownMenuItem>
@@ -337,7 +363,10 @@ export function StruktoApp() {
                   <DropdownMenuItem disabled>{t.noRecentFiles}</DropdownMenuItem>
                 ) : (
                   recent.map((r) => (
-                    <DropdownMenuItem key={r.name} onSelect={() => handleOpenRecent(r.name)}>
+                    <DropdownMenuItem
+                      key={r.name}
+                      onSelect={() => guard(() => void handleOpenRecent(r.name))}
+                    >
                       {r.name}
                     </DropdownMenuItem>
                   ))
@@ -575,18 +604,44 @@ export function StruktoApp() {
             <p className="mb-2 text-xs font-semibold tracking-wide uppercase opacity-70">{t.functions}</p>
             <div className="grid gap-1">
               {functions.map((fn) => (
-                <button
+                <div
                   key={fn.id}
-                  type="button"
-                  draggable={fn.id !== doc.mainId}
-                  onDragStart={(e) => setPayload(e, { type: "fnref", funcId: fn.id })}
-                  onClick={() => (fn.id === doc.mainId ? store.closeTopFunction() : store.openFunction(fn.id))}
-                  className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex cursor-grab items-center gap-2 rounded-md px-2 py-1.5 text-left font-mono text-sm active:cursor-grabbing"
+                  className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group flex items-center gap-1 rounded-md pr-1"
                 >
-                  <SquareFunction className="size-4 shrink-0 opacity-80" />
-                  <span className="flex-1 truncate">{fn.name}</span>
-                  {fn.orphaned ? <span className="text-[10px] opacity-60">{t.orphaned}</span> : null}
-                </button>
+                  <button
+                    type="button"
+                    draggable={fn.id !== doc.mainId}
+                    onDragStart={(e) => setPayload(e, { type: "fnref", funcId: fn.id })}
+                    onClick={() => (fn.id === doc.mainId ? store.closeTopFunction() : store.openFunction(fn.id))}
+                    className="flex min-w-0 flex-1 cursor-grab items-center gap-2 rounded-md px-2 py-1.5 text-left font-mono text-sm active:cursor-grabbing"
+                  >
+                    <SquareFunction className="size-4 shrink-0 opacity-80" />
+                    <span className="flex-1 truncate">{fn.name}</span>
+                    {fn.orphaned ? <span className="text-[10px] opacity-60">{t.orphaned}</span> : null}
+                  </button>
+                  {store.openStack.includes(fn.id) ? (
+                    <button
+                      type="button"
+                      title={t.closeFunction}
+                      aria-label={t.closeFunction}
+                      onClick={() => store.closeFunctionById(fn.id)}
+                      className="hover:bg-sidebar-border rounded p-1 opacity-60 hover:opacity-100"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  ) : null}
+                  {fn.id !== doc.mainId ? (
+                    <button
+                      type="button"
+                      title={t.deleteFunction}
+                      aria-label={t.deleteFunction}
+                      onClick={() => setDeleteFn(fn.id)}
+                      className="hover:text-destructive rounded p-1 opacity-60 hover:opacity-100"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  ) : null}
+                </div>
               ))}
               <Button
                 variant="outline"
@@ -598,6 +653,10 @@ export function StruktoApp() {
                 }}
               >
                 {t.newFunction}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setShowFnImport(true)}>
+                <FileInput className="size-4" />
+                {t.importCodeFunction}
               </Button>
             </div>
           </div>
@@ -647,6 +706,83 @@ export function StruktoApp() {
       </Dialog>
 
       <CodePanel open={showCode} onOpenChange={setShowCode} activeFuncId={activeFuncId} />
+
+      <CodePanel
+        open={showFnImport}
+        onOpenChange={setShowFnImport}
+        activeFuncId={activeFuncId}
+        target="functions"
+      />
+
+      {/* delete a function from the sidebar */}
+      <Dialog open={!!deleteFn} onOpenChange={(v) => !v && setDeleteFn(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t.deleteFunctionSideTitle}</DialogTitle>
+            <DialogDescription>
+              {deleteFn
+                ? t.deleteFunctionSideBody(
+                    doc.functions[deleteFn]?.name ?? "",
+                    callsFunction(doc, deleteFn).length,
+                  )
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2">
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (deleteFn) {
+                  store.closeFunctionById(deleteFn);
+                  ops.deleteFunctionEverywhere(deleteFn);
+                }
+                setDeleteFn(null);
+              }}
+            >
+              {t.deleteFunction}
+            </Button>
+            <Button variant="outline" onClick={() => setDeleteFn(null)}>
+              {t.cancel}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* unsaved-changes guard */}
+      <Dialog open={!!pending} onOpenChange={(v) => !v && setPending(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t.unsavedTitle}</DialogTitle>
+            <DialogDescription>{t.unsavedBody}</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2">
+            <Button
+              onClick={async () => {
+                const action = pending;
+                setPending(null);
+                await handleSave(false);
+                action?.();
+              }}
+            >
+              <Save className="size-4" />
+              {t.saveAndContinue}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                const action = pending;
+                setPending(null);
+                action?.();
+              }}
+            >
+              {t.discardAndContinue}
+            </Button>
+            <Button variant="outline" onClick={() => setPending(null)}>
+              {t.cancel}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <FunctionModals />
 
