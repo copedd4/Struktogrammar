@@ -220,3 +220,16 @@ bun run tauri:build     # produce installers/binaries in src-tauri/target/releas
 
 - Saving/opening `.stkg` files uses the File System Access API in browsers; inside the Tauri WebView the download/file-input fallback is used, and the `dialog` + `fs` plugins are already enabled if you want to wire native dialogs later.
 - Everything (themes, autosave, PNG/SVG/PDF export) works without a network connection.
+
+## Productivity features
+
+- **Fit to view** – the frame icon in the toolbar scales and centers the whole diagram.
+- **Touch gestures** – one-finger pan on empty canvas, two-finger pinch to zoom (tablets).
+- **Keyboard navigation** – Arrow Up/Down move between blocks, Enter edits, Esc deselects; focused blocks show a visible ring.
+- **Search & jump** – magnifier icon searches all block texts and jumps to the match (opens the function if needed).
+- **History panel** – clock icon lists named undo/redo steps; click any step to jump to that state.
+- **Templates** – File → Templates offers factorial, bubble sort, grade switch-case and a login example.
+- **Recent files & autosave to file** – File → Recent files reopens previous `.stkg` files; File → "Autosave to file" writes silently to the opened file. The toolbar badge shows Saved / Unsaved.
+- **Reorder switch cases** – drag a case header onto the "+" gap between columns.
+- **Reparent blocks** – drag a block from an inline-expanded function into the main diagram (and back).
+- **`.stkg` file association** – the Tauri build registers the extension so double-clicking a project opens the desktop app.
