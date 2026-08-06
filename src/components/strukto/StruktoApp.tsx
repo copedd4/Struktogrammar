@@ -606,18 +606,50 @@ export function StruktoApp() {
               {functions.map((fn) => (
                 <div
                   key={fn.id}
-                  className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group flex items-center gap-1 rounded-md pr-1"
+                  className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group flex min-w-0 items-center gap-1 rounded-md pr-1"
                 >
+                  {renameFn === fn.id ? (
+                    <input
+                      autoFocus
+                      defaultValue={fn.name}
+                      onBlur={(e) => {
+                        const v = e.target.value.trim();
+                        if (v && v !== fn.name) ops.renameFunction(fn.id, v);
+                        setRenameFn(null);
+                      }}
+                      onKeyDown={(e) => {
+                        e.stopPropagation();
+                        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                        if (e.key === "Escape") setRenameFn(null);
+                      }}
+                      className="bg-background text-foreground min-w-0 flex-1 rounded-md border px-2 py-1 font-mono text-sm outline-none"
+                    />
+                  ) : (
                   <button
                     type="button"
                     draggable={fn.id !== doc.mainId}
                     onDragStart={(e) => setPayload(e, { type: "fnref", funcId: fn.id })}
                     onClick={() => (fn.id === doc.mainId ? store.closeTopFunction() : store.openFunction(fn.id))}
+                    onDoubleClick={(e) => {
+                      e.preventDefault();
+                      setRenameFn(fn.id);
+                    }}
+                    title={fn.name}
                     className="flex min-w-0 flex-1 cursor-grab items-center gap-2 rounded-md px-2 py-1.5 text-left font-mono text-sm active:cursor-grabbing"
                   >
                     <SquareFunction className="size-4 shrink-0 opacity-80" />
-                    <span className="flex-1 truncate">{fn.name}</span>
-                    {fn.orphaned ? <span className="text-[10px] opacity-60">{t.orphaned}</span> : null}
+                    <span className="min-w-0 flex-1 truncate">{shortenName(fn.name)}</span>
+                    {fn.orphaned ? <span className="shrink-0 text-[10px] opacity-60">{t.orphaned}</span> : null}
+                  </button>
+                  )}
+                  <button
+                    type="button"
+                    title={t.renameFunction}
+                    aria-label={t.renameFunction}
+                    onClick={() => setRenameFn(fn.id)}
+                    className="hover:bg-sidebar-border shrink-0 rounded p-1 opacity-60 hover:opacity-100"
+                  >
+                    <Pencil className="size-3.5" />
                   </button>
                   {store.openStack.includes(fn.id) ? (
                     <button
@@ -625,7 +657,7 @@ export function StruktoApp() {
                       title={t.closeFunction}
                       aria-label={t.closeFunction}
                       onClick={() => store.closeFunctionById(fn.id)}
-                      className="hover:bg-sidebar-border rounded p-1 opacity-60 hover:opacity-100"
+                      className="hover:bg-sidebar-border shrink-0 rounded p-1 opacity-60 hover:opacity-100"
                     >
                       <X className="size-3.5" />
                     </button>
@@ -636,7 +668,7 @@ export function StruktoApp() {
                       title={t.deleteFunction}
                       aria-label={t.deleteFunction}
                       onClick={() => setDeleteFn(fn.id)}
-                      className="hover:text-destructive rounded p-1 opacity-60 hover:opacity-100"
+                      className="hover:text-destructive shrink-0 rounded p-1 opacity-60 hover:opacity-100"
                     >
                       <Trash2 className="size-3.5" />
                     </button>
