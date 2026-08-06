@@ -1,5 +1,6 @@
 import type { StruktoDoc } from "./types";
 import { emptyDoc } from "./model";
+import { loadHandle, rememberRecent, storeHandle } from "./recent";
 
 let handle: FileSystemFileHandle | null = null;
 
@@ -42,6 +43,8 @@ export async function saveProject(doc: StruktoDoc, name: string, forceNew = fals
       const writable = await handle!.createWritable();
       await writable.write(serialize(doc));
       await writable.close();
+      rememberRecent(handle!.name);
+      void storeHandle(handle!.name, handle);
       return handle!.name;
     } catch (err) {
       if ((err as DOMException)?.name === "AbortError") throw err;
@@ -58,6 +61,8 @@ export async function openProject(): Promise<{ doc: StruktoDoc; name: string } |
       const [h] = await window.showOpenFilePicker(pickerOpts);
       handle = h;
       const file = await h.getFile();
+      rememberRecent(h.name);
+      void storeHandle(h.name, h);
       return { doc: parse(await file.text()), name: h.name };
     } catch (err) {
       if ((err as DOMException)?.name === "AbortError") return null;
@@ -82,4 +87,38 @@ export async function openProject(): Promise<{ doc: StruktoDoc; name: string } |
 
 export function resetHandle() {
   handle = null;
+}
+
+/** True when we can write silently (autosave) without showing a picker. */
+export const hasHandle = () => handle !== null;
+
+/** Silent write to the already-granted handle. Returns false when not possible. */
+export async function saveToHandle(doc: StruktoDoc): Promise<boolean> {
+  if (!handle) return false;
+  try {
+    const perm = await (
+      handle as unknown as { queryPermission?: (o: unknown) => Promise<PermissionState> }
+    ).queryPermission?.({ mode: "readwrite" });
+    if (perm && perm !== "granted") return false;
+    const writable = await handle.createWritable();
+    await writable.write(serialize(doc));
+    await writable.close();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Re-open a previously used file from the stored handle (permission prompt may appear). */
+export async function openRecent(name: string): Promise<{ doc: StruktoDoc; name: string } | null> {
+  const h = await loadHandle(name);
+  if (!h) return null;
+  const perm = await (
+    h as unknown as { requestPermission?: (o: unknown) => Promise<PermissionState> }
+  ).requestPermission?.({ mode: "readwrite" });
+  if (perm && perm !== "granted") return null;
+  handle = h;
+  const file = await h.getFile();
+  rememberRecent(name);
+  return { doc: parse(await file.text()), name };
 }
