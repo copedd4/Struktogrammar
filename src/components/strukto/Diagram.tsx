@@ -435,7 +435,7 @@ function Body({
       // line that separates the true / false branches — even when one branch
       // is much wider than the other.
       return (
-        <div className="grid grid-cols-[minmax(max-content,1fr)_minmax(max-content,1fr)]">
+        <div className="grid grid-cols-[auto_auto]">
           <div className="border-line relative col-start-1 row-start-1 min-h-16 border-b">
             <svg
               viewBox="0 0 100 100"
