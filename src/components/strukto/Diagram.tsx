@@ -430,18 +430,38 @@ function Body({
       return <CallBody funcId={funcId} node={node} />;
 
     case "if":
+      // Header and branches share the same two grid columns, so each diagonal
+      // is drawn inside its own column and both always meet exactly on the
+      // line that separates the true / false branches — even when one branch
+      // is much wider than the other.
       return (
-        <div className="relative">
-          <div className="border-line relative h-16 border-b">
+        <div className="grid grid-cols-[auto_auto]">
+          <div className="border-line relative col-start-1 row-start-1 min-h-16 border-b">
             <svg
               viewBox="0 0 100 100"
               preserveAspectRatio="none"
-              className="absolute inset-0 h-full w-full"
+              className="pointer-events-none absolute inset-0 h-full w-full"
             >
-              <line x1="0" y1="0" x2="50" y2="100" stroke="var(--color-line)" vectorEffect="non-scaling-stroke" />
-              <line x1="100" y1="0" x2="50" y2="100" stroke="var(--color-line)" vectorEffect="non-scaling-stroke" />
+              <line x1="0" y1="0" x2="100" y2="100" stroke="var(--color-line)" vectorEffect="non-scaling-stroke" />
             </svg>
-            <div className="relative mx-auto w-2/3 pt-0.5">
+            <span className="text-muted-foreground absolute bottom-0.5 left-1.5 text-[11px]">
+              {t.yes}
+            </span>
+          </div>
+          <div className="border-line relative col-start-2 row-start-1 min-h-16 border-b">
+            <svg
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+              className="pointer-events-none absolute inset-0 h-full w-full"
+            >
+              <line x1="100" y1="0" x2="0" y2="100" stroke="var(--color-line)" vectorEffect="non-scaling-stroke" />
+            </svg>
+            <span className="text-muted-foreground absolute right-1.5 bottom-0.5 text-[11px]">
+              {t.no}
+            </span>
+          </div>
+          <div className="relative col-span-2 col-start-1 row-start-1 self-start">
+            <div className="mx-auto w-2/3 pt-0.5">
               <EditableText
                 value={node.cond}
                 center
@@ -451,24 +471,20 @@ function Body({
                 onCommit={(v) => ops.update(funcId, node.id, (n) => n.kind === "if" && (n.cond = v))}
               />
             </div>
-            <span className="text-muted-foreground absolute bottom-0.5 left-1.5 text-[11px]">
-              {t.yes}
-            </span>
-            <span className="text-muted-foreground absolute right-1.5 bottom-0.5 text-[11px]">
-              {t.no}
-            </span>
           </div>
           {collapsed ? (
-            <Summary text="…" />
+            <div className="col-span-2">
+              <Summary text="…" />
+            </div>
           ) : (
-            <div className="flex items-stretch">
-              <div className="border-line min-w-max flex-1 border-r">
+            <>
+              <div className="border-line min-w-max border-r">
                 <Sequence funcId={funcId} keyId={listKey(node.id, "then")} nodes={node.then} />
               </div>
-              <div className="min-w-max flex-1">
+              <div className="min-w-max">
                 <Sequence funcId={funcId} keyId={listKey(node.id, "else")} nodes={node.else} />
               </div>
-            </div>
+            </>
           )}
         </div>
       );
