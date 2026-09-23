@@ -11,7 +11,7 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "./src"),
       // Swap the SSR root for the plain SPA root
-      "./routes/__root": path.resolve(__dirname, "src/routes/__root.tauri"),
+      "./routes/__root": path.resolve(__dirname, "src/tauri/root.tsx"),
     },
   },
   build: {
