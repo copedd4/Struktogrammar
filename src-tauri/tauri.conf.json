@@ -4,20 +4,22 @@
   "version": "0.1.0",
   "identifier": "com.struktogrammer.ch",
   "build": {
-  "frontendDist": "../dist",
-  "devUrl": "http://localhost:8080",
-  "beforeBuildCommand": "bun run build:tauri",
-  "beforeDevCommand": "bun run dev"
-},
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
   "app": {
     "windows": [
       {
         "title": "Struktogrammer",
-        "width": 800,
-        "height": 600,
+        "width": 1280,
+        "height": 820,
         "resizable": true,
         "fullscreen": false,
-	"dragDropEnabled": false
+        "dragDropEnabled": false,
+        "minWidth": 800,
+        "minHeight": 560
       }
     ],
     "security": {

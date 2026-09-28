@@ -1,235 +1,157 @@
-# Strukto — Interactive Struktogramm Editor
+# Struktogrammer
 
-A browser-based editor for **Nassi–Shneiderman diagrams** (Struktogramme) built with TanStack Start, React, TypeScript, and Tailwind CSS. Design, edit, and export structured program diagrams with drag-and-drop blocks, collapsible function calls, multiple themes, and full German/English language support.
+A desktop editor for **Nassi–Shneiderman diagrams** (Struktogramme). It runs fully offline and is built with [Tauri 2](https://tauri.app), React and TypeScript.
 
-![Strukto editor screenshot](https://id-preview--8ae99dd9-5b7a-45f2-9be2-4d198baf1e9d.lovable.app/og-image.png)
+![Struktogrammer screenshot](docs/screenshot.png)
 
 ## Features
 
-- **Block-based editing** — Insert Statement, If/Else, While, Do-While, For, Switch-Case, Function/Method, Break/Return/Continue, and Comment blocks.
-- **Drag & drop** — Drag blocks from the sidebar palette or move existing blocks around the diagram.
-- **Inline function expansion** — Double-click a function block to open it in a modal, or expand it directly inside the main diagram.
-- **Recursive protection** — Prevents infinite recursion when expanding function calls.
-- **Theming** — Switch between Light, Dark, Eggshell White, Navy Blue Dark, and Siemens themes.
-- **Undo/redo** — Full history stack with 100 levels of undo.
-- **Copy/paste/duplicate** — Duplicate blocks quickly with `Ctrl/Cmd + D`.
-- **Zoom & pan** — Zoom with `Ctrl/Cmd + mouse wheel`, pan by middle-clicking or holding Space and dragging.
-- **Collapsible blocks** — Fold loops and expanded function calls to keep large diagrams readable.
-- **Autosave** — Work is automatically saved to `localStorage`.
-- **File handling** — Save and open native `.stkg` JSON files using the File System Access API (where supported), with fallback downloads.
-- **Export** — Export diagrams as PNG, SVG, or PDF.
-- **Multilingual** — Switch between English and German.
-- **Keyboard shortcuts** — Speed up diagramming with one-key block insertion.
-
-## Tech Stack
-
-- [TanStack Start](https://tanstack.com/start) — full-stack React framework
-- [React 19](https://react.dev) — UI library
-- [TypeScript](https://www.typescriptlang.org) — type-safe code
-- [Tailwind CSS](https://tailwindcss.com) — styling
-- [Lucide React](https://lucide.dev) — icons
-- [html-to-image](https://github.com/bubkoo/html-to-image) & [jsPDF](https://github.com/parallax/jsPDF) — export rendering
+- **All structogram blocks**: statement, if/else, while, do-while, for, switch-case, function call, break/return/continue and comment.
+- **Functions as their own diagrams**, with parameters and a return type. A call can be opened in a window or expanded inline.
+- **Editing**: drag and drop, insert buttons between blocks, undo/redo with a history list, search, validation, and a command palette.
+- **Copy and paste through the system clipboard**, also between documents. Blocks carry the functions they call.
+- **Export** to vector SVG, PNG or multi-page PDF, either the current diagram or the full call tree.
+- **Code** generation to C, Java, JavaScript and Python, and import of existing code into blocks.
+- **Five themes** and an English/German interface.
+- **Files** are saved as `.stkg` projects (JSON). The editor also autosaves locally.
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org) 18 or later (LTS recommended)
-- [npm](https://www.npmjs.com) (or [bun](https://bun.sh), [pnpm](https://pnpm.io), or [yarn](https://yarnpkg.com))
+You need **Node.js**, **Rust** and your operating system's **Tauri dependencies**.
 
-This project is configured to use **Bun** by default (`bunfig.toml` is included). You can use npm instead if you prefer.
+| Tool | Version | Install |
+| --- | --- | --- |
+| Node.js | 20.19+ or 22.12+ | <https://nodejs.org> (npm comes with it) |
+| Rust | stable, 1.77.2+ | <https://rustup.rs> |
 
-## Installation
+### Windows
 
-1. Clone the repository:
+1. Install [Microsoft C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) and choose the **"Desktop development with C++"** workload.
+2. WebView2 is already part of Windows 10 (1803+) and Windows 11. On older systems, install the [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/).
+3. Install Rust with `rustup` and use the MSVC toolchain (the default): `rustup default stable-msvc`.
 
-   ```sh
-   git clone <repository-url>
-   cd <repository-name>
-   ```
-
-2. Install dependencies:
-
-   ```sh
-   # Using bun (recommended)
-   bun install
-
-   # Using npm
-   npm install
-   ```
-
-## Development
-
-Start the local development server:
+### macOS
 
 ```sh
-# Using bun
-bun run dev
-
-# Using npm
-npm run dev
+xcode-select --install
 ```
 
-The app will be available at `http://localhost:8080`. The server supports hot module replacement (HMR), so changes update automatically in the browser.
+### Linux
 
-## Build for Production
+Debian / Ubuntu:
 
 ```sh
-# Using bun
-bun run build
-
-# Using npm
-npm run build
+sudo apt update
+sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file \
+  libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
 ```
 
-The production build is output to the `dist/` directory and can be deployed to any static or edge host.
+For Fedora, Arch, openSUSE and others, see the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/#linux).
 
-## Quick Guide
+## Getting started
 
-### Creating a Diagram
+```sh
+git clone https://github.com/copedd4/Struktogrammer.git
+cd Struktogrammer
+npm install
+npm run tauri:dev
+```
 
-1. Open the app in your browser.
-2. The main function block is already shown on the canvas.
-3. Click any block in the left sidebar to insert it after the currently selected block, or drag a block from the sidebar onto the canvas.
+`npm run tauri:dev` starts the frontend dev server on port 1420 and opens the app window. Changes to the frontend reload instantly; changes in `src-tauri/` rebuild the Rust part. The first run compiles all Rust dependencies, which takes a few minutes.
 
-### Inserting Blocks
+## Building the app
 
-- Select a block in the diagram, then click a sidebar block to insert after it.
-- Insert blocks directly with keyboard shortcuts:
-  - `S` — Statement
-  - `I` — If/Else
-  - `W` — While
-  - `D` — Do-While
-  - `F` — For
-  - `C` — Switch-Case
-  - `M` — Function/Method
-  - `B` — Break/Return/Continue
-  - `K` — Comment
+```sh
+npm run tauri:build
+```
 
-### Editing Text
+The installers end up in `src-tauri/target/release/bundle/`:
 
-- Click any block text to edit it inline.
-- Textareas auto-resize as you type.
-
-### Working with Functions
-
-- **Create a function** — Click "New function" in the left sidebar.
-- **Rename a function** — Double-click the function name in the sidebar.
-- **Open a function** — Double-click a function call block to open it in a floating panel.
-- **Expand inline** — Click the chevron on the left side of a function call block to show its diagram inside the main diagram.
-- **Drag a function in** — Drag a function name from the sidebar onto the canvas to insert an expanded function call.
-
-Function names must be unique across the entire project. Deleting a function call gives you the option to keep the function definition or remove it entirely.
-
-### Switch-Case Blocks
-
-- Switch blocks start with three named cases plus a default case.
-- Click the `+` gap between cases to add a new case.
-- Delete any named case except the default case.
-
-### Navigation
-
-- **Zoom** — Hold `Ctrl`/`Cmd` and scroll, or use the zoom buttons in the top bar.
-- **Pan** — Middle-click and drag, or hold Space and drag.
-- **Reset view** — Click the maximize button in the top bar.
-
-### Files and Export
-
-- **Save** — `File → Save` (uses the native File System Access API when available, otherwise downloads the file).
-- **Save as** — `File → Save as`.
-- **Open** — `File → Open`.
-- **Export** — Choose `PNG`, `SVG`, or `PDF` from the File menu. Toggle between exporting the current view or the full call tree.
-
-### Keyboard Shortcuts
-
-| Shortcut | Action |
+| Platform | Output |
 | --- | --- |
-| `Ctrl/Cmd + Z` | Undo |
-| `Ctrl/Cmd + Shift + Z` | Redo |
-| `Ctrl/Cmd + Y` | Redo |
-| `Ctrl/Cmd + C` | Copy selected block |
-| `Ctrl/Cmd + V` | Paste copied block |
-| `Ctrl/Cmd + D` | Duplicate selected block |
-| `Delete` / `Backspace` | Delete selected block |
-| `Escape` | Deselect |
+| Windows | `msi/*.msi` and `nsis/*-setup.exe` |
+| macOS | `macos/Struktogrammer.app` and `dmg/*.dmg` |
+| Linux | `deb/*.deb`, `rpm/*.rpm` and `appimage/*.AppImage` |
 
-### Themes and Language
+To build only one format, pass it through, for example:
 
-- Switch themes with the palette icon in the top bar.
-- Switch between English and German with the language button (`EN` / `DE`).
+```sh
+npm run tauri build -- --bundles deb
+```
 
-## Project Structure
+Each platform has to be built on that platform: Windows installers on Windows, macOS apps on a Mac.
 
-```text
+> **macOS:** builds are not signed. On first launch, right-click the app and choose **Open**, or remove the quarantine flag: `xattr -dr com.apple.quarantine Struktogrammer.app`.
+
+## Scripts
+
+| Command | What it does |
+| --- | --- |
+| `npm run tauri:dev` | Run the desktop app in development mode |
+| `npm run tauri:build` | Build the release app and installers |
+| `npm run tauri -- <args>` | Any other [Tauri CLI](https://v2.tauri.app/reference/cli/) command, e.g. `npm run tauri -- icon app-icon.png` |
+| `npm run build` | Type-check and build only the frontend into `dist/` |
+| `npm run lint` | ESLint and Prettier checks |
+| `npm run format` | Format all files with Prettier |
+
+## Keyboard shortcuts
+
+`Ctrl` is `⌘` on macOS.
+
+| Keys | Action |
+| --- | --- |
+| `Alt` + `S` / `I` / `W` / `D` / `F` / `C` / `M` / `B` / `K` | Insert statement / if / while / do-while / for / switch / function / break / comment |
+| `Enter` | Edit the selected block |
+| `↑` `↓` | Previous / next block |
+| `←` `→` | Enclosing / first nested block |
+| `Ctrl` + `C` / `X` / `V` | Copy / cut / paste blocks |
+| `Ctrl` + `D` | Duplicate |
+| `Delete` | Delete the selected block |
+| `Ctrl` + `Z` / `Ctrl` + `Y` | Undo / redo |
+| `Ctrl` + `S` (`+ Shift`) | Save (save as) |
+| `Ctrl` + `O` | Open |
+| `Ctrl` + `K` | Command palette |
+| `Ctrl` + mouse wheel | Zoom |
+
+## Project structure
+
+```
 src/
-├── components/strukto/   # Editor components (Canvas, Diagram, DiagramSurface, etc.)
-├── lib/strukto/            # State, model, operations, i18n, themes, file I/O, export
-├── routes/                 # TanStack Start routes
-├── routes/__root.tsx       # Root layout
-├── routes/index.tsx        # Main editor page
-└── styles.css              # Global styles and theme tokens
+  main.tsx                  app entry
+  components/strukto/       editor UI (canvas, blocks, dialogs, palette)
+  components/ui/            shared UI components (shadcn/ui, Radix)
+  lib/strukto/
+    types.ts, model.ts      document model and tree helpers
+    store.tsx, ops.ts       state, undo/redo and editing operations
+    schema.ts, fileio.ts    .stkg validation, open/save, recent files
+    render.ts, exporting.ts SVG/PNG/PDF export
+    geometry.ts             layout of the if/switch diagonals
+    codegen.ts, codeimport.ts  code generation and import
+    i18n.tsx, themes.ts     translations and themes
+src-tauri/                  Rust shell: window, config, icons, capabilities
+index.html, vite.config.ts  frontend build
 ```
 
-## File Format
+## The `.stkg` file format
 
-Projects are saved as `.stkg` files — JSON documents containing the diagram structure, function definitions, and metadata. The format is portable and can be opened across any browser that supports the editor.
+A project is a JSON document:
 
-## License
-
-This project is open source and available under the [MIT License](LICENSE).
-
----
-
-Built with [Lovable](https://lovable.dev) and synced to GitHub for two-way collaboration.
-
-## Desktop app (Tauri, fully offline)
-
-The editor is 100% client-side, so it can be shipped as a native desktop app with no server and no network access.
-
-### Files involved
-
-| Path | Purpose |
-| --- | --- |
-| `desktop/index.html`, `desktop/main.tsx` | Standalone SPA entry (no SSR, no router) |
-| `vite.desktop.config.ts` | Static build that inlines JS + CSS into **one** HTML file |
-| `src-tauri/` | Tauri v2 shell (Rust), config, capabilities |
-
-### Prerequisites
-
-- Node.js 20+ (or Bun) and project deps installed: `bun install`
-- Rust toolchain: https://rustup.rs
-- Platform deps: see https://tauri.app/start/prerequisites (Windows: WebView2 + MSVC build tools; Linux: `libwebkit2gtk-4.1-dev`, `libgtk-3-dev`, `librsvg2-dev`, `patchelf`; macOS: Xcode CLT)
-- App icons (one time):
-  ```bash
-  bunx tauri icon path/to/icon.png   # writes src-tauri/icons/
-  ```
-
-### Commands
-
-```bash
-bun install             # required once — installs vite & the tauri CLI
-bun run desktop:build   # -> desktop/dist/index.html  (single self-contained file)
-bun run tauri:dev       # run the desktop app in dev
-bun run tauri:build     # produce installers/binaries in src-tauri/target/release/bundle
+```json
+{
+  "version": 1,
+  "format": "stkg",
+  "name": "Factorial",
+  "mainId": "a1b2c3",
+  "functions": {
+    "a1b2c3": { "id": "a1b2c3", "name": "main", "body": [ { "kind": "statement", "id": "x1", "text": "read n" } ] }
+  }
+}
 ```
 
-> `bun: command not found: vite` simply means dependencies were never installed in
-> that folder — run `bun install` (or `npm install`) first.
+Block kinds are `statement`, `comment`, `if` (`cond`, `then`, `else`), `while` / `dowhile` / `for` (`cond`, `body`), `switch` (`expr`, `cases`, `defaultCase`), `call` (`funcId`, optional `args`) and `terminator` (`variant`: `break` | `return` | `continue`, `text`). Files are validated when opened. A file written by a newer version of the app is rejected with a message.
 
-`desktop/dist/index.html` alone is already a working offline app — you can double-click it in any browser. `tauri build` wraps that same file into a native executable.
+## Troubleshooting
 
-### Notes
-
-- Saving/opening `.stkg` files uses the File System Access API in browsers; inside the Tauri WebView the download/file-input fallback is used, and the `dialog` + `fs` plugins are already enabled if you want to wire native dialogs later.
-- Everything (themes, autosave, PNG/SVG/PDF export) works without a network connection.
-
-## Productivity features
-
-- **Fit to view** – the frame icon in the toolbar scales and centers the whole diagram.
-- **Touch gestures** – one-finger pan on empty canvas, two-finger pinch to zoom (tablets).
-- **Keyboard navigation** – Arrow Up/Down move between blocks, Enter edits, Esc deselects; focused blocks show a visible ring.
-- **Search & jump** – magnifier icon searches all block texts and jumps to the match (opens the function if needed).
-- **History panel** – clock icon lists named undo/redo steps; click any step to jump to that state.
-- **Templates** – File → Templates offers factorial, bubble sort, grade switch-case and a login example.
-- **Recent files & autosave to file** – File → Recent files reopens previous `.stkg` files; File → "Autosave to file" writes silently to the opened file. The toolbar badge shows Saved / Unsaved.
-- **Reorder switch cases** – drag a case header onto the "+" gap between columns.
-- **Reparent blocks** – drag a block from an inline-expanded function into the main diagram (and back).
-- **`.stkg` file association** – the Tauri build registers the extension so double-clicking a project opens the desktop app.
+- **`Port 1420 is already in use`**: another dev server is still running. Stop it, or change the port in both `vite.config.ts` and `src-tauri/tauri.conf.json` (`build.devUrl`).
+- **Linux: `webkit2gtk-4.1` / `gdk-3.0` not found**: install the Linux packages listed above.
+- **Windows: `link.exe` not found**: the C++ Build Tools are missing, or Rust uses the GNU toolchain. Run `rustup default stable-msvc`.

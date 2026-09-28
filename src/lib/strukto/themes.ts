@@ -19,6 +19,6 @@ export function applyTheme(id: ThemeId) {
 /**
  * Runs in <head> before the first paint, so a stored dark theme doesn't flash
  * the light one while the app loads. Keep in sync with applyTheme; the same
- * snippet is inlined in index.html and desktop/index.html.
+ * snippet is inlined in index.html.
  */
 export const THEME_BOOT_SCRIPT = `try{var t=localStorage.getItem("${THEME_STORAGE_KEY}")||"light",r=document.documentElement;r.dataset.theme=t;if(t==="dark"||t==="navy"||t==="siemens")r.classList.add("dark");var l=localStorage.getItem("strukto.lang");if(l==="de"||l==="en")r.lang=l}catch(e){}`;
