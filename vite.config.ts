@@ -13,7 +13,15 @@ export default defineConfig({
   },
   // Tauri expects a fixed port and shows Rust errors in the terminal
   clearScreen: false,
-  server: { port: 1420, strictPort: true },
+  server: {
+    port: 1420,
+    strictPort: true,
+    watch: {
+      // Cargo builds inside src-tauri/target; watching it makes Vite crash on
+      // Windows (EBUSY on locked build-script .exe files) and is useless anyway
+      ignored: ["**/src-tauri/**"],
+    },
+  },
   envPrefix: ["VITE_", "TAURI_ENV_"],
   build: {
     outDir: "dist",
