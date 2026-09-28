@@ -51,8 +51,8 @@ For Fedora, Arch, openSUSE and others, see the [Tauri prerequisites](https://v2.
 ## Getting started
 
 ```sh
-git clone https://github.com/copedd4/Struktogrammer.git
-cd Struktogrammer
+git clone https://github.com/copedd4/Struktogrammar.git
+cd Struktogrammar
 npm install
 npm run tauri:dev
 ```
