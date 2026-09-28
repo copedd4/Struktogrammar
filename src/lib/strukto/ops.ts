@@ -11,6 +11,7 @@ import {
   uniqueFunctionName,
   walk,
 } from "./model";
+import type { Clip } from "./clipboard";
 import { useStrukto } from "./store";
 import type { SNode, StruktoDoc } from "./types";
 
@@ -117,7 +118,11 @@ export function useOps() {
         if (!fn) return;
         const hit = findNode(fn.body, switchId);
         if (hit && hit.node.kind === "switch") {
-          const label = String.fromCharCode(65 + hit.node.cases.length);
+          // A…Z, then A2…Z2, …; always a label not used by another case yet
+          const taken = new Set(hit.node.cases.map((c) => c.label.trim()));
+          let label = "";
+          for (let i = 0; !label || taken.has(label); i++)
+            label = String.fromCharCode(65 + (i % 26)) + (i >= 26 ? String(Math.floor(i / 26) + 1) : "");
           hit.node.cases.splice(index, 0, newCase(label));
         }
       }, "histAddCase");
@@ -172,6 +177,23 @@ export function useOps() {
       mutate((d) => {
         if (d.functions[funcId]) d.functions[funcId].name = uniqueFunctionName(d, name, funcId);
       }, "histRenameFunction");
+    },
+    [mutate],
+  );
+
+  /** Change a function's parameter list and/or return type. */
+  const setSignature = useCallback(
+    (funcId: string, patch: { params?: string; returns?: string }) => {
+      mutate((d) => {
+        const fn = d.functions[funcId];
+        if (!fn) return;
+        for (const key of ["params", "returns"] as const) {
+          const v = patch[key];
+          if (v === undefined) continue;
+          if (v.trim()) fn[key] = v.trim();
+          else delete fn[key];
+        }
+      }, "histSignature");
     },
     [mutate],
   );
@@ -231,6 +253,26 @@ export function useOps() {
     [mutate],
   );
 
+
+  /**
+   * Paste clipboard blocks as one undo step. Functions the pasted call blocks
+   * need but this document lacks (copied from another document) are added too.
+   */
+  const pasteClips = useCallback(
+    (funcId: string, key: string, index: number, clips: Clip[]) => {
+      mutate((d) => {
+        const fn = d.functions[funcId];
+        const list = fn ? resolveList(fn, key) : null;
+        if (!list) return;
+        for (const clip of clips)
+          for (const def of Object.values(clip.functions))
+            if (!d.functions[def.id])
+              d.functions[def.id] = { ...structuredClone(def), name: uniqueFunctionName(d, def.name) };
+        list.splice(Math.max(0, Math.min(index, list.length)), 0, ...clips.map((c) => reId(c.node)));
+      }, "histPaste");
+    },
+    [mutate],
+  );
 
   /** Merge functions from an imported document into the current one. */
   const importFunctions = useCallback(
@@ -348,14 +390,16 @@ export function useOps() {
       renameCase,
       createFunction,
       renameFunction,
+      setSignature,
       deleteFunctionDefinition,
       deleteFunctionEverywhere,
       importFunctions,
+      pasteClips,
       setOrphaned,
       removeCallBlock,
       insertFunctionBlock,
     }),
-    [doc, insert, remove, removeKeepChildren, update, move, duplicate, moveTo, moveCase, addCase, removeCase, renameCase, createFunction, renameFunction, deleteFunctionDefinition, deleteFunctionEverywhere, importFunctions, setOrphaned, removeCallBlock, insertFunctionBlock],
+    [doc, insert, remove, removeKeepChildren, update, move, duplicate, moveTo, moveCase, addCase, removeCase, renameCase, createFunction, renameFunction, setSignature, deleteFunctionDefinition, deleteFunctionEverywhere, importFunctions, pasteClips, setOrphaned, removeCallBlock, insertFunctionBlock],
   );
 }
 

@@ -54,7 +54,7 @@ export const templates: Template[] = [
         st("read n"),
         iff(
           "n < 0",
-          [st('output "invalid input"'), { kind: "terminator", id: uid(), variant: "return", text: "return -1" }],
+          [st('output "invalid input"'), { kind: "terminator", id: uid(), variant: "return", text: "-1" }],
           [
             st("result ← 1"),
             loop("for", "i ← 2 to n", [st("result ← result * i")]),
@@ -107,15 +107,17 @@ export const templates: Template[] = [
       doc.functions[fnId] = {
         id: fnId,
         name: "checkPassword",
+        params: "user, password",
+        returns: "bool",
         body: [
           st("hash ← hash(password)"),
           iff("hash = stored", [st("valid ← true")], [st("valid ← false")]),
-          { kind: "terminator", id: uid(), variant: "return", text: "return valid" },
+          { kind: "terminator", id: uid(), variant: "return", text: "valid" },
         ],
       };
       doc.functions[doc.mainId]!.body = [
         st("read user, password"),
-        { kind: "call", id: uid(), funcId: fnId },
+        { kind: "call", id: uid(), funcId: fnId, args: "user, password" },
         iff("valid", [st('output "welcome"')], [st('output "access denied"')]),
       ];
       return doc;

@@ -64,7 +64,8 @@ export function CodePanel({
 
   const runImport = () => {
     try {
-      const { doc: next } = importCode(source, doc.name || "Imported");
+      const { doc: next, warnings } = importCode(source, doc.name || "Imported");
+      if (warnings.length) toast.warning(t.codeImportMissing(warnings), { duration: 8000 });
       if (target === "functions") {
         ops.importFunctions(next, (id) => {
           if (id) store.openFunction(id);

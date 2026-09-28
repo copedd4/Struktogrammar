@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "../components/ui/sonner";
+import { THEME_BOOT_SCRIPT } from "../lib/strukto/themes";
 
 function NotFoundComponent() {
   return (
@@ -105,6 +106,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
     ],
+    // apply the stored theme before the first paint, avoiding a light flash
+    scripts: [{ children: THEME_BOOT_SCRIPT }],
   }),
   shellComponent: RootShell,
   component: RootComponent,
@@ -114,7 +117,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    // the boot script sets theme attributes on <html> before hydration
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>

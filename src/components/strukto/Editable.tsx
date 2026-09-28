@@ -14,6 +14,7 @@ export function EditableText({
   mono,
   center,
   invalid,
+  ariaLabel,
 }: {
   value: string;
   onCommit: (v: string) => void;
@@ -22,6 +23,8 @@ export function EditableText({
   mono?: boolean;
   center?: boolean;
   invalid?: boolean;
+  /** Accessible name; defaults to the placeholder. */
+  ariaLabel?: string;
 }) {
   const [draft, setDraft] = useState(value);
   const lock = useContext(EditLock);
@@ -65,6 +68,8 @@ export function EditableText({
         rows={1}
         value={draft}
         placeholder={placeholder}
+        aria-label={ariaLabel ?? placeholder}
+        aria-invalid={invalid || undefined}
         spellCheck={false}
         readOnly={!editing}
         tabIndex={editing ? 0 : -1}

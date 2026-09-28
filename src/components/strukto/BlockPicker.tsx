@@ -20,6 +20,9 @@ export interface PickerItem {
   shortcut?: string;
 }
 
+/** Blocks are inserted with Alt + the item's letter. */
+export const ALT = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌥" : "Alt+";
+
 export const PICKER_ITEMS: PickerItem[] = [
   { kind: "statement", icon: Type, labelKey: "statement", shortcut: "S" },
   { kind: "if", icon: Split, labelKey: "ifElse", shortcut: "I" },
@@ -53,6 +56,7 @@ export function BlockPicker({
           <span className="flex-1 truncate">{t[item.labelKey]}</span>
           {item.shortcut ? (
             <kbd className="rounded border border-border px-1 text-[10px] text-muted-foreground">
+              {ALT}
               {item.shortcut}
             </kbd>
           ) : null}

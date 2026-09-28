@@ -1,6 +1,6 @@
 import type { StruktoDoc } from "./types";
-import { emptyDoc } from "./model";
-import { loadHandle, rememberRecent, storeHandle } from "./recent";
+import { parseDocument } from "./schema";
+import { loadHandle, rememberRecent } from "./recent";
 
 let handle: FileSystemFileHandle | null = null;
 
@@ -15,12 +15,8 @@ export function serialize(doc: StruktoDoc) {
   return JSON.stringify(doc, null, 2);
 }
 
-export function parse(text: string): StruktoDoc {
-  const data = JSON.parse(text) as StruktoDoc;
-  if (!data || typeof data !== "object" || !data.functions || !data.mainId)
-    throw new Error("Invalid .stkg file");
-  return { ...emptyDoc(), ...data };
-}
+/** Parse and validate a .stkg file (throws InvalidFileError). */
+export const parse = parseDocument;
 
 function download(name: string, content: string) {
   const blob = new Blob([content], { type: "application/json" });
@@ -29,25 +25,48 @@ function download(name: string, content: string) {
   a.href = url;
   a.download = name;
   a.click();
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export async function saveProject(doc: StruktoDoc, name: string, forceNew = false): Promise<string> {
+const isAbort = (err: unknown) => (err as DOMException)?.name === "AbortError";
+
+async function write(h: FileSystemFileHandle, doc: StruktoDoc) {
+  const writable = await h.createWritable();
+  await writable.write(serialize(doc));
+  await writable.close();
+}
+
+/**
+ * Save to the current file (or ask for one). Returns the saved file name.
+ * Cancelling the picker throws an AbortError. When the picker itself is not
+ * usable here (e.g. inside an iframe) the file is downloaded instead; a failure
+ * while writing an already chosen file is thrown so the user learns about it.
+ */
+export async function saveProject(
+  doc: StruktoDoc,
+  name: string,
+  forceNew = false,
+): Promise<string> {
   const fileName = name.endsWith(".stkg") ? name : `${name}.stkg`;
   if (supportsFsAccess()) {
-    try {
-      if (!handle || forceNew) {
+    let target = forceNew ? null : handle;
+    if (!target) {
+      try {
         // @ts-expect-error non-standard API
-        handle = await window.showSaveFilePicker({ suggestedName: fileName, ...pickerOpts });
+        target = (await window.showSaveFilePicker({
+          suggestedName: fileName,
+          ...pickerOpts,
+        })) as FileSystemFileHandle;
+      } catch (err) {
+        if (isAbort(err)) throw err;
+        target = null; // picker blocked: fall through to a download
       }
-      const writable = await handle!.createWritable();
-      await writable.write(serialize(doc));
-      await writable.close();
-      rememberRecent(handle!.name);
-      void storeHandle(handle!.name, handle);
-      return handle!.name;
-    } catch (err) {
-      if ((err as DOMException)?.name === "AbortError") throw err;
+    }
+    if (target) {
+      await write(target, doc);
+      handle = target;
+      await rememberRecent(target);
+      return target.name;
     }
   }
   download(fileName, serialize(doc));
@@ -56,16 +75,18 @@ export async function saveProject(doc: StruktoDoc, name: string, forceNew = fals
 
 export async function openProject(): Promise<{ doc: StruktoDoc; name: string } | null> {
   if (supportsFsAccess()) {
+    let h: FileSystemFileHandle | null = null;
     try {
       // @ts-expect-error non-standard API
-      const [h] = await window.showOpenFilePicker(pickerOpts);
-      handle = h;
-      const file = await h.getFile();
-      rememberRecent(h.name);
-      void storeHandle(h.name, h);
-      return { doc: parse(await file.text()), name: h.name };
+      [h] = await window.showOpenFilePicker(pickerOpts);
     } catch (err) {
-      if ((err as DOMException)?.name === "AbortError") return null;
+      if (isAbort(err)) return null;
+    }
+    if (h) {
+      const doc = parse(await (await h.getFile()).text());
+      handle = h;
+      await rememberRecent(h);
+      return { doc, name: h.name };
     }
   }
   return new Promise((resolve, reject) => {
@@ -100,9 +121,7 @@ export async function saveToHandle(doc: StruktoDoc): Promise<boolean> {
       handle as unknown as { queryPermission?: (o: unknown) => Promise<PermissionState> }
     ).queryPermission?.({ mode: "readwrite" });
     if (perm && perm !== "granted") return false;
-    const writable = await handle.createWritable();
-    await writable.write(serialize(doc));
-    await writable.close();
+    await write(handle, doc);
     return true;
   } catch {
     return false;
@@ -110,15 +129,15 @@ export async function saveToHandle(doc: StruktoDoc): Promise<boolean> {
 }
 
 /** Re-open a previously used file from the stored handle (permission prompt may appear). */
-export async function openRecent(name: string): Promise<{ doc: StruktoDoc; name: string } | null> {
-  const h = await loadHandle(name);
+export async function openRecent(id: string): Promise<{ doc: StruktoDoc; name: string } | null> {
+  const h = await loadHandle(id);
   if (!h) return null;
   const perm = await (
     h as unknown as { requestPermission?: (o: unknown) => Promise<PermissionState> }
   ).requestPermission?.({ mode: "readwrite" });
   if (perm && perm !== "granted") return null;
+  const doc = parse(await (await h.getFile()).text());
   handle = h;
-  const file = await h.getFile();
-  rememberRecent(name);
-  return { doc: parse(await file.text()), name };
+  await rememberRecent(h);
+  return { doc, name: h.name };
 }

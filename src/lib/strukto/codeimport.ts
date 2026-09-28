@@ -1,8 +1,9 @@
-import { makeNode, uid, uniqueFunctionName } from "./model";
+import { childLists, makeNode, uid, uniqueFunctionName } from "./model";
 import type { LoopNode, SNode, StruktoDoc, StruktoFunction, SwitchCase, TerminatorVariant } from "./types";
 
 export interface ImportResult {
   doc: StruktoDoc;
+  /** Names of functions that are called but never defined in the pasted code. */
   warnings: string[];
 }
 
@@ -34,12 +35,38 @@ function leafNode(raw: string, funcNames: Map<string, string>): SNode {
   if (ret) return terminator("return", ret[1] ?? "");
   if (/^break$/.test(text)) return terminator("break");
   if (/^continue$/.test(text)) return terminator("continue");
-  const call = /^(?:await\s+)?(\w+)\s*\(\s*\)$/.exec(text);
+  const call = /^(?:await\s+)?(\w+)\s*\(/.exec(text);
   if (call) {
     const id = funcNames.get(call[1]!.toLowerCase());
-    if (id) return { kind: "call", id: uid(), funcId: id };
+    const args = argsIfWholeCall(text.slice(call[0].length - 1));
+    if (id && args !== null) {
+      const node: SNode = { kind: "call", id: uid(), funcId: id };
+      if (args) node.args = args;
+      return node;
+    }
   }
   return statement(text);
+}
+
+/**
+ * For "(a, f(b))" returns "a, f(b)"; null when the parentheses close before the
+ * end (e.g. "(a)(b)" or "(a) + 1"), i.e. the line is not just one call.
+ */
+function argsIfWholeCall(s: string): string | null {
+  let depth = 0;
+  let quote = "";
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i]!;
+    if (quote) {
+      if (ch === "\\") i++;
+      else if (ch === quote) quote = "";
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === "`") quote = ch;
+    else if (ch === "(") depth++;
+    else if (ch === ")" && --depth === 0) return i === s.length - 1 ? s.slice(1, i).trim() : null;
+  }
+  return null;
 }
 
 /* ------------------------------------------------------------------ *
@@ -56,6 +83,37 @@ function tokenize(src: string): string[] {
   };
   for (let i = 0; i < src.length; i++) {
     const ch = src[i]!;
+    // string literals are copied as-is: braces / semicolons inside them are not syntax
+    if (ch === '"' || ch === "'" || ch === "`") {
+      let j = i + 1;
+      while (j < src.length && src[j] !== ch && src[j] !== "\n") j += src[j] === "\\" ? 2 : 1;
+      buf += src.slice(i, j + 1);
+      i = j;
+      continue;
+    }
+    if (ch === "/" && src[i + 1] === "/") {
+      push();
+      const end = src.indexOf("\n", i);
+      const stop = end < 0 ? src.length : end;
+      out.push(src.slice(i, stop).trim());
+      i = stop;
+      continue;
+    }
+    if (ch === "/" && src[i + 1] === "*") {
+      push();
+      const end = src.indexOf("*/", i + 2);
+      const stop = end < 0 ? src.length : end + 2;
+      // one comment token; its lines are joined so it becomes a single comment block
+      const body = src
+        .slice(i + 2, end < 0 ? src.length : end)
+        .split("\n")
+        .map((l) => l.replace(/^\s*\*\s?/, "").trim())
+        .filter(Boolean)
+        .join("\n");
+      if (body) out.push(`/* ${body} */`);
+      i = stop - 1;
+      continue;
+    }
     if (ch === "(" || ch === "[") depth++;
     if (ch === ")" || ch === "]") depth = Math.max(0, depth - 1);
     if (ch === "{" || ch === "}") {
@@ -78,7 +136,17 @@ function tokenize(src: string): string[] {
 }
 
 const FN_HEADER =
-  /^(?:export\s+|public\s+|private\s+|protected\s+|static\s+|final\s+|async\s+)*(?:function\s+)?(?:[\w<>\[\],\s*]+?\s+)?([A-Za-z_]\w*)\s*\(([^)]*)\)\s*(?:const)?\s*$/;
+  /^(?:export\s+|public\s+|private\s+|protected\s+|static\s+|final\s+|async\s+)*(?:function\s+)?([\w<>[\],\s*]+?\s+)?([A-Za-z_]\w*)\s*\(([^)]*)\)\s*(?::\s*([\w<>[\]|]+))?\s*(?:const)?\s*(?:throws\s+[\w.,\s]+)?$/;
+
+/** Signature details worth keeping: parameters and a non-void return type. */
+function signatureOf(params: string, returnType: string | undefined): Pick<StruktoFunction, "params" | "returns"> {
+  const out: Pick<StruktoFunction, "params" | "returns"> = {};
+  const p = params.trim();
+  if (p && p !== "void" && !/^String\s*\[\]\s*\w+$|^String\s+\w+\s*\[\]$/.test(p)) out.params = p;
+  const r = returnType?.trim().replace(/^(?:function|def)$/, "");
+  if (r && r !== "void") out.returns = r;
+  return out;
+}
 
 const KEYWORDS = new Set(["if", "else", "while", "for", "switch", "do", "return", "catch", "class"]);
 
@@ -151,7 +219,7 @@ function parseChunk(
     return body;
   }
   if (/^#include|^#define|^package\b|^import\b|^using\b/.test(tok)) return null;
-  if (/^\/\*|\*\/$/.test(tok)) return [leafNode(tok.replace(/\/\*|\*\//g, ""), names)];
+  if (tok.startsWith("/*")) return [comment(tok.replace(/^\/\*\s?|\s?\*\/$/g, ""))];
 
   if (/^if\b/.test(tok)) {
     const node = makeNode("if") as Extract<SNode, { kind: "if" }>;
@@ -227,13 +295,20 @@ function parseChunk(
   }
 
   const fnMatch = FN_HEADER.exec(tok);
-  if (fnMatch && !KEYWORDS.has(fnMatch[1]!) && p.toks[p.i] === "{") {
-    const name = fnMatch[1]!;
-    const body = parseBraced(p, names, fns);
-    const existing = fns.find((f) => f.name === name);
-    if (existing) existing.body = body;
-    else fns.push({ id: names.get(name.toLowerCase()) ?? uid(), name, body });
-    return null;
+  if (fnMatch && !KEYWORDS.has(fnMatch[2]!)) {
+    const [, retType, name = "", params = "", tsReturn] = fnMatch;
+    const typePrefix = retType?.trim().split(/\s+/).pop();
+    if (p.toks[p.i] === "{") {
+      const body = parseBraced(p, names, fns);
+      const sig = signatureOf(params, tsReturn ?? typePrefix);
+      const existing = fns.find((f) => f.name === name);
+      if (existing) Object.assign(existing, { body }, sig);
+      else fns.push({ id: names.get(name.toLowerCase()) ?? uid(), name, body, ...sig });
+      return null;
+    }
+    // a prototype such as `int add(int a, int b);` declares, it does not run anything
+    if (typePrefix && !/^(return|new|await|else)$/.test(typePrefix) && /^\w/.test(params.trim() || "x") && names.has(name.toLowerCase()))
+      return null;
   }
   if (/\bclass\b/.test(tok) && p.toks[p.i] === "{") return parseBraced(p, names, fns);
 
@@ -248,11 +323,30 @@ interface PyLine {
   text: string;
 }
 
+/** Physical lines → logical lines: open brackets and trailing `\\` continue a statement. */
 function pyLines(src: string): PyLine[] {
-  return src
-    .split("\n")
-    .filter((l) => l.trim().length)
-    .map((l) => ({ indent: l.match(/^\s*/)![0].replace(/\t/g, "    ").length, text: l.trim() }));
+  const out: PyLine[] = [];
+  let pending: PyLine | null = null;
+  let depth = 0;
+  for (const raw of src.split("\n")) {
+    const text = raw.trim();
+    if (!text && !pending) continue;
+    if (pending) pending.text += " " + text;
+    else pending = { indent: raw.match(/^\s*/)![0].replace(/\t/g, "    ").length, text };
+    const code = text.replace(/("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/g, "").replace(/#.*$/, "");
+    for (const ch of code) {
+      if ("([{".includes(ch)) depth++;
+      else if (")]}".includes(ch)) depth = Math.max(0, depth - 1);
+    }
+    if (depth > 0 || text.endsWith("\\")) {
+      pending.text = pending.text.replace(/\\$/, "").trimEnd();
+      continue;
+    }
+    out.push(pending);
+    pending = null;
+  }
+  if (pending) out.push(pending);
+  return out;
 }
 
 function parsePyBlock(
@@ -279,12 +373,13 @@ function parsePyBlock(
     };
 
     let m: RegExpExecArray | null;
-    if ((m = /^def\s+(\w+)\s*\(([^)]*)\)\s*:$/.exec(text))) {
+    if ((m = /^(?:async\s+)?def\s+(\w+)\s*\(([^)]*)\)\s*(?:->\s*(.+?))?\s*:$/.exec(text))) {
       const name = m[1]!;
+      const sig = signatureOf((m[2] ?? "").replace(/\bself\s*,?\s*/, ""), m[3] === "None" ? undefined : m[3]);
       const body = block();
       const existing = fns.find((f) => f.name === name);
-      if (existing) existing.body = body;
-      else fns.push({ id: names.get(name.toLowerCase()) ?? uid(), name, body });
+      if (existing) Object.assign(existing, { body }, sig);
+      else fns.push({ id: names.get(name.toLowerCase()) ?? uid(), name, body, ...sig });
       continue;
     }
     if ((m = /^if\s+(.+):$/.exec(text))) {
@@ -423,21 +518,20 @@ export function importCode(src: string, docName = "Imported"): ImportResult {
     doc.functions[fn.id] = fn;
   }
 
-  // rewire calls to functions we never saw a definition for
+  // Calls to functions that were declared (e.g. a prototype) but never defined
+  // become plain statements, and their names are reported to the user.
   const known = new Set(Object.keys(doc.functions));
+  const nameOf = new Map([...names].map(([lower, id]) => [id, declared.find((d) => d.toLowerCase() === lower) ?? lower]));
   Object.values(doc.functions).forEach((fn) => {
     const fix = (list: SNode[]) => {
-      list.forEach((n) => {
-        if (n.kind === "call" && !known.has(n.funcId)) warnings.push(n.funcId);
-        if (n.kind === "if") {
-          fix(n.then);
-          fix(n.else);
-        } else if (n.kind === "while" || n.kind === "dowhile" || n.kind === "for") fix(n.body);
-        else if (n.kind === "switch") {
-          n.cases.forEach((c) => fix(c.body));
-          fix(n.defaultCase.body);
+      list.forEach((n, i) => {
+        if (n.kind === "call" && !known.has(n.funcId)) {
+          const name = nameOf.get(n.funcId) ?? "?";
+          if (!warnings.includes(name)) warnings.push(name);
+          list[i] = statement(`${name}(${n.args ?? ""})`);
         }
       });
+      list.forEach((n) => childLists(n).forEach(fix));
     };
     fix(fn.body);
   });

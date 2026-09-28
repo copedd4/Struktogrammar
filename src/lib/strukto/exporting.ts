@@ -1,67 +1,148 @@
-import { toCanvas, toPng, toSvg } from "html-to-image";
 import { jsPDF } from "jspdf";
+import {
+  FONTS,
+  drawToCanvas,
+  layoutDiagrams,
+  toSvg,
+  type Drawing,
+  type RenderColors,
+  type RenderLabels,
+} from "./render";
+import type { StruktoDoc } from "./types";
 
-const opts = (el: HTMLElement) => ({
-  backgroundColor: getComputedStyle(document.documentElement).getPropertyValue("--canvas") || "#fff",
-  pixelRatio: 2,
-  width: el.scrollWidth,
-  height: el.scrollHeight,
-  style: { transform: "none", transformOrigin: "top left" },
-});
+export type ExportFormat = "png" | "svg" | "pdf";
 
-function triggerDownload(dataUrl: string, name: string) {
+export interface ExportRequest {
+  doc: StruktoDoc;
+  /** Functions to export, drawn one below the other (PDF: one per page). */
+  funcIds: string[];
+  labels: RenderLabels;
+  /** File name without extension. */
+  name: string;
+}
+
+/** Resolve a theme colour (often oklch) to rgb, which every SVG/PDF viewer understands. */
+function themeColor(varName: string, fallback: string): string {
+  const raw = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 1;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx || !raw) return fallback;
+  ctx.fillStyle = fallback;
+  ctx.fillStyle = raw;
+  ctx.fillRect(0, 0, 1, 1);
+  const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
+  return a === 255
+    ? `rgb(${r}, ${g}, ${b})`
+    : `rgba(${r}, ${g}, ${b}, ${((a ?? 255) / 255).toFixed(3)})`;
+}
+
+function themeColors(): RenderColors {
+  return {
+    canvas: themeColor("--canvas", "#f5f5f5"),
+    block: themeColor("--block", "#ffffff"),
+    head: themeColor("--block-head", "#f1f3f5"),
+    line: themeColor("--line", "#555b66"),
+    text: themeColor("--foreground", "#111827"),
+    muted: themeColor("--muted-foreground", "#6b7280"),
+    note: themeColor("--note", "#fdf6d8"),
+    noteText: themeColor("--note-foreground", "#5c4a1a"),
+  };
+}
+
+async function ensureFonts() {
+  if (typeof document === "undefined" || !document.fonts) return;
+  await Promise.all(
+    Object.values(FONTS).map((f) => document.fonts.load(f.css, "Aa∅←").catch(() => [])),
+  );
+}
+
+function download(url: string, name: string) {
   const a = document.createElement("a");
-  a.href = dataUrl;
+  a.href = url;
   a.download = name;
   a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export async function exportPng(elements: HTMLElement[], name: string) {
-  for (let i = 0; i < elements.length; i++) {
-    const el = elements[i]!;
-    const url = await toPng(el, opts(el));
-    triggerDownload(url, elements.length > 1 ? `${name}-${i + 1}.png` : `${name}.png`);
-  }
-}
+const blobUrl = (canvas: HTMLCanvasElement) =>
+  new Promise<string>((resolve, reject) =>
+    canvas.toBlob(
+      (b) => (b ? resolve(URL.createObjectURL(b)) : reject(new Error("PNG encoding failed"))),
+      "image/png",
+    ),
+  );
 
-export async function exportSvg(elements: HTMLElement[], name: string) {
-  for (let i = 0; i < elements.length; i++) {
-    const el = elements[i]!;
-    const url = await toSvg(el, opts(el));
-    triggerDownload(url, elements.length > 1 ? `${name}-${i + 1}.svg` : `${name}.svg`);
+export async function exportDiagram(format: ExportFormat, req: ExportRequest) {
+  await ensureFonts();
+  const colors = themeColors();
+  const drawing = layoutDiagrams(req.doc, req.funcIds, colors, req.labels);
+  if (format === "svg") {
+    const blob = new Blob([toSvg(drawing, colors.line)], { type: "image/svg+xml;charset=utf-8" });
+    download(URL.createObjectURL(blob), `${req.name}.svg`);
+  } else if (format === "png") {
+    // 2× for sharpness, less for huge diagrams: browsers refuse canvases above ~16k px per side
+    const scale = Math.max(0.5, Math.min(2, MAX_CANVAS / Math.max(drawing.width, drawing.height)));
+    download(await blobUrl(drawToCanvas(drawing, colors.line, scale)), `${req.name}.png`);
+  } else {
+    savePdf(drawing, colors.line, req.name);
   }
 }
 
 const PDF_MARGIN = 30;
-/** 1 CSS px = 0.75 pt; the canvas is rendered at pixelRatio 2. */
-const PT_PER_CANVAS_PX = 0.75 / 2;
+/** 1 CSS px = 0.75 pt. */
+const PT_PER_PX = 0.75;
+const PDF_SCALE = 3;
+const MAX_CANVAS = 16000;
 
 /**
- * Each diagram starts on a new A4 page (landscape for wide diagrams). It is scaled
- * to the page width without distorting it, and never enlarged beyond its natural
- * size; diagrams taller than one page continue on the following pages.
+ * Each function starts on a new A4 page (landscape when wider than tall), scaled
+ * to fit the page width without distortion and never enlarged. Diagrams taller
+ * than a page continue on the next one; page breaks fall between blocks
+ * whenever possible instead of cutting through one.
  */
-export async function exportPdf(elements: HTMLElement[], name: string) {
+function savePdf(d: Drawing, lineColor: string, name: string) {
   let pdf: jsPDF | null = null;
-  for (const el of elements) {
-    const canvas = await toCanvas(el, opts(el));
-    const orientation = el.scrollWidth > el.scrollHeight ? "landscape" : "portrait";
+  for (const s of d.surfaces) {
+    const top = s.y - 8;
+    const bottom = s.y + s.h + 8;
+    const orientation = d.width > bottom - top ? "landscape" : "portrait";
     if (pdf) pdf.addPage("a4", orientation);
-    else pdf = new jsPDF({ unit: "pt", format: "a4", orientation });
-
+    else pdf = new jsPDF({ unit: "pt", format: "a4", orientation, compress: true });
     const maxW = pdf.internal.pageSize.getWidth() - PDF_MARGIN * 2;
     const maxH = pdf.internal.pageSize.getHeight() - PDF_MARGIN * 2;
-    const scale = Math.min(maxW / canvas.width, PT_PER_CANVAS_PX);
-    const sliceHeight = Math.max(1, Math.floor(maxH / scale));
+    const scale = Math.min(maxW / d.width, PT_PER_PX); // pt per drawing px
+    const pageH = maxH / scale; // drawing px per page
 
-    for (let y = 0; y < canvas.height; y += sliceHeight) {
-      const h = Math.min(sliceHeight, canvas.height - y);
-      const slice = document.createElement("canvas");
-      slice.width = canvas.width;
-      slice.height = h;
-      slice.getContext("2d")!.drawImage(canvas, 0, y, canvas.width, h, 0, 0, canvas.width, h);
-      if (y > 0) pdf.addPage("a4", orientation);
-      pdf.addImage(slice.toDataURL("image/png"), "PNG", PDF_MARGIN, PDF_MARGIN, canvas.width * scale, h * scale);
+    let y = top;
+    while (y < bottom - 1) {
+      let end = Math.min(bottom, y + pageH);
+      if (end < bottom) {
+        // prefer the last block boundary on this page, unless it wastes most of the page
+        const cut = d.breaks.filter((b) => b > y + pageH * 0.3 && b <= end).at(-1);
+        if (cut) end = cut;
+      }
+      // each page is rendered on its own, so the whole diagram never needs one giant canvas
+      const slice = drawToCanvas(
+        d,
+        lineColor,
+        Math.min(PDF_SCALE, MAX_CANVAS / d.width),
+        y,
+        end - y,
+      );
+      if (y > top) pdf.addPage("a4", orientation);
+      // "FAST" = flate-compress the pixels; jsPDF stores them raw (MBs per page) otherwise
+      pdf.addImage(
+        slice,
+        "PNG",
+        PDF_MARGIN,
+        PDF_MARGIN,
+        d.width * scale,
+        (end - y) * scale,
+        undefined,
+        "FAST",
+      );
+      y = end;
     }
   }
   pdf?.save(`${name}.pdf`);

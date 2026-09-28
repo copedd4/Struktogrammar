@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { emptyDoc } from "./model";
+import { parseDocument } from "./schema";
 import type { SNode, StruktoDoc } from "./types";
 
 const AUTOSAVE_KEY = "strukto.autosave.v1";
@@ -16,6 +17,12 @@ const AUTOSAVE_KEY = "strukto.autosave.v1";
 export interface Selection {
   funcId: string;
   nodeId: string;
+  /**
+   * Where the block is shown: the same block can appear several times (a
+   * function open in a window and expanded inline elsewhere). Undefined matches
+   * any instance, e.g. right after jumping to a search result.
+   */
+  path?: string;
 }
 
 /** A history entry keeps the document *before* an action plus that action's label. */
@@ -83,12 +90,13 @@ export function StruktoProvider({ children }: { children: ReactNode }) {
       const raw = localStorage.getItem(AUTOSAVE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as {
-          doc: StruktoDoc;
+          doc: unknown;
           fileName: string | null;
           dirty?: boolean;
         };
-        if (parsed?.doc?.functions) {
-          setDoc(parsed.doc);
+        if (parsed?.doc) {
+          // validated like a file, so a corrupt autosave can't break the editor
+          setDoc(parseDocument(JSON.stringify(parsed.doc)));
           setFileName(parsed.fileName ?? null);
           // restored work that was never written to a file is still unsaved
           setDirty(parsed.dirty ?? false);

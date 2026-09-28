@@ -39,6 +39,8 @@ export interface CallNode {
   kind: "call";
   id: NodeId;
   funcId: string;
+  /** Arguments passed to the function, e.g. "n - 1, acc". */
+  args?: string;
   collapsed?: boolean;
   expanded?: boolean;
 }
@@ -68,6 +70,10 @@ export type BlockKind = SNode["kind"];
 export interface StruktoFunction {
   id: string;
   name: string;
+  /** Parameter list as typed by the user, e.g. "int n, int acc" or "n, acc". */
+  params?: string;
+  /** Return type, e.g. "int". Empty means no return value (void). */
+  returns?: string;
   body: SNode[];
   orphaned?: boolean;
 }

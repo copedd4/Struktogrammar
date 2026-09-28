@@ -38,6 +38,7 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -56,19 +57,28 @@ import { Canvas, useCanvasView } from "./Canvas";
 import { DiagramSurface } from "./DiagramSurface";
 import { FunctionModals } from "./FunctionModal";
 import { CodePanel } from "./CodePanel";
-import { PICKER_ITEMS } from "./BlockPicker";
-import { ExportOnly, setPayload } from "./Diagram";
+import { ALT, PICKER_ITEMS } from "./BlockPicker";
+import { MOD, setPayload, type DeleteRequest } from "./Diagram";
+import { CommandPalette } from "./CommandPalette";
+import { makeClip, noteSystemClipboardWritten, resolvePaste, serializeClip } from "@/lib/strukto/clipboard";
 import { useI18n, type Lang } from "@/lib/strukto/i18n";
 import { useStrukto } from "@/lib/strukto/store";
 import { useOps } from "@/lib/strukto/ops";
 import { THEMES, THEME_STORAGE_KEY, applyTheme, type ThemeId } from "@/lib/strukto/themes";
-import { ROOT_LIST, callsFunction, emptyDoc, findNode, locate, makeNode, reId, validate } from "@/lib/strukto/model";
+import { ROOT_LIST, callsFunction, emptyDoc, findNode, locate, makeNode, validate, walk } from "@/lib/strukto/model";
 import { hasHandle, openProject, openRecent, resetHandle, saveProject, saveToHandle } from "@/lib/strukto/fileio";
-import { exportPdf, exportPng, exportSvg } from "@/lib/strukto/exporting";
+import { InvalidFileError } from "@/lib/strukto/schema";
+import { exportDiagram, type ExportFormat } from "@/lib/strukto/exporting";
 import type { BlockKind, SNode } from "@/lib/strukto/types";
 import { cn } from "@/lib/utils";
 
 type Scope = "current" | "all";
+
+/** True while the user is typing in a text field (shortcuts must not fire then). */
+const isTyping = (target: EventTarget | null) => {
+  const el = target as HTMLElement | null;
+  return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable) && !(el as HTMLTextAreaElement).readOnly;
+};
 
 export function StruktoApp() {
   const store = useStrukto();
@@ -77,7 +87,6 @@ export function StruktoApp() {
   const view = useCanvasView();
   const [theme, setTheme] = useState<ThemeId>("light");
   const [scope, setScope] = useState<Scope>("current");
-  const mainRef = useRef<HTMLDivElement>(null);
   const [diskAutosave, setDiskAutosave] = useState(false);
   const [recent, setRecent] = useState<RecentFile[]>([]);
   const [showTemplates, setShowTemplates] = useState(false);
@@ -88,7 +97,8 @@ export function StruktoApp() {
   const [renameFn, setRenameFn] = useState<string | null>(null);
   const [pending, setPending] = useState<null | (() => void)>(null);
   const [query, setQuery] = useState("");
-  const allRef = useRef<HTMLDivElement>(null);
+  const [showPalette, setShowPalette] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
 
   const { doc, selection } = store;
 
@@ -139,18 +149,13 @@ export function StruktoApp() {
 
   /* --------------------------- insertion helpers -------------------------- */
 
-  const insertBlock = useCallback(
-    (kind: BlockKind) => {
-      const fn = doc.functions[activeFuncId];
-      if (!fn) return;
-      const at = selection && selection.funcId === activeFuncId ? locate(fn, selection.nodeId) : null;
-      const key = at?.key ?? ROOT_LIST;
-      const index = at ? at.index + 1 : fn.body.length;
-      if (kind === "call") ops.insertFunctionBlock(activeFuncId, key, index, `function${Object.keys(doc.functions).length}`);
-      else ops.insert(activeFuncId, key, index, makeNode(kind));
-    },
-    [activeFuncId, doc.functions, ops, selection],
-  );
+  /** Insert after the selected block (in whichever diagram it is), else at the end of the open function. */
+  const insertBlock = (kind: BlockKind) => {
+    const at = insertionPoint();
+    if (!doc.functions[at.funcId]) return;
+    if (kind === "call") ops.insertFunctionBlock(at.funcId, at.key, at.index, "function");
+    else ops.insert(at.funcId, at.key, at.index, makeNode(kind));
+  };
 
   /* ------------------------------- search --------------------------------- */
 
@@ -191,85 +196,147 @@ export function StruktoApp() {
 
   /* ------------------------------- shortcuts ------------------------------ */
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement;
-      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable))
-        return;
-      const mod = e.ctrlKey || e.metaKey;
-      if (mod && e.key.toLowerCase() === "z") {
-        e.preventDefault();
-        e.shiftKey ? store.redo() : store.undo();
-        return;
-      }
-      if (mod && e.key.toLowerCase() === "y") {
-        e.preventDefault();
-        store.redo();
-        return;
-      }
-      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-        const blocks = Array.from(document.querySelectorAll<HTMLElement>("[data-block-id]")).filter(
-          (el) => el.offsetParent !== null,
-        );
-        if (!blocks.length) return;
-        e.preventDefault();
-        const current = blocks.findIndex((el) => el.dataset["blockId"] === selection?.nodeId);
-        const next =
-          current < 0
-            ? 0
-            : (current + (e.key === "ArrowDown" ? 1 : -1) + blocks.length) % blocks.length;
-        blocks[next]?.focus();
-        return;
-      }
-      if (e.key === "Enter" && selection) {
-        const el = document.querySelector<HTMLElement>(`[data-block-id="${selection.nodeId}"]`);
-        const field = el?.querySelector<HTMLElement>("textarea, input, [contenteditable]");
-        if (field) {
-          e.preventDefault();
-          field.click();
-          field.focus();
-          return;
-        }
-      }
-      if (!selection) {
-        const hit = PICKER_ITEMS.find((i) => i.shortcut?.toLowerCase() === e.key.toLowerCase());
-        if (!mod && hit) {
-          e.preventDefault();
-          insertBlock(hit.kind);
-        }
-        return;
-      }
+  /** Where a paste / insertion goes: after the selected block, else at the end of the open function. */
+  const insertionPoint = () => {
+    if (selection) {
       const fn = doc.functions[selection.funcId];
-      const node = fn ? findNode(fn.body, selection.nodeId)?.node : null;
-      if (mod && e.key.toLowerCase() === "c" && node) {
+      const at = fn ? locate(fn, selection.nodeId) : null;
+      if (at) return { funcId: selection.funcId, key: at.key, index: at.index + 1 };
+    }
+    return { funcId: activeFuncId, key: ROOT_LIST, index: doc.functions[activeFuncId]?.body.length ?? 0 };
+  };
+
+  // Handlers read the latest render's state through this ref, so the listeners
+  // are registered once instead of on every change.
+  const keyHandler = useRef<(e: KeyboardEvent) => void>(() => {});
+  const clipHandler = useRef<(e: ClipboardEvent) => void>(() => {});
+
+  keyHandler.current = (e: KeyboardEvent) => {
+    const typing = isTyping(e.target);
+    const mod = e.ctrlKey || e.metaKey;
+    const key = e.key.toLowerCase();
+    // file commands also work while a text field is being edited
+    if (mod && key === "s") {
+      e.preventDefault();
+      // leaving the field commits its text before the document is written
+      (document.activeElement as HTMLElement | null)?.blur?.();
+      setTimeout(() => void saveRef.current(e.shiftKey));
+      return;
+    }
+    if (mod && key === "o") {
+      e.preventDefault();
+      guard(() => void handleOpen());
+      return;
+    }
+    if (mod && key === "k") {
+      e.preventDefault();
+      setShowPalette(true);
+      return;
+    }
+    if (typing) return;
+    if (mod && key === "z") {
+      e.preventDefault();
+      if (e.shiftKey) store.redo();
+      else store.undo();
+      return;
+    }
+    if (mod && key === "y") {
+      e.preventDefault();
+      store.redo();
+      return;
+    }
+    // Alt + letter inserts a block (e.code, because Alt changes e.key on macOS)
+    if (e.altKey && !mod) {
+      const hit = PICKER_ITEMS.find((i) => i.shortcut && e.code === `Key${i.shortcut}`);
+      if (hit) {
         e.preventDefault();
-        store.setClipboard(node);
-        toast.success(t.copy);
-      } else if (mod && e.key.toLowerCase() === "v" && store.clipboard && fn) {
-        e.preventDefault();
-        const at = locate(fn, selection.nodeId);
-        ops.insert(selection.funcId, at?.key ?? ROOT_LIST, (at?.index ?? -1) + 1, reId(store.clipboard));
-      } else if (mod && e.key.toLowerCase() === "d") {
-        e.preventDefault();
-        ops.duplicate(selection.funcId, selection.nodeId);
-      } else if (e.key === "Delete" || e.key === "Backspace") {
-        e.preventDefault();
-        window.dispatchEvent(new CustomEvent("strukto:request-delete"));
-      } else if (e.key === "Escape") {
-        store.setSelection(null);
-      } else if (!mod) {
-        const hit = PICKER_ITEMS.find((i) => i.shortcut?.toLowerCase() === e.key.toLowerCase());
-        if (hit) {
-          e.preventDefault();
-          insertBlock(hit.kind);
-        }
+        insertBlock(hit.kind);
       }
-    };
+      return;
+    }
+    const current = (document.activeElement as HTMLElement | null)?.closest<HTMLElement>("[data-block-id]");
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      const blocks = Array.from(document.querySelectorAll<HTMLElement>("[data-block-id]")).filter(
+        (el) => el.offsetParent !== null,
+      );
+      if (!blocks.length) return;
+      e.preventDefault();
+      const i = current ? blocks.indexOf(current) : -1;
+      const next = i < 0 ? 0 : (i + (e.key === "ArrowDown" ? 1 : -1) + blocks.length) % blocks.length;
+      blocks[next]?.focus();
+      return;
+    }
+    // ← / → leave to the enclosing block / enter the first nested one
+    if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && current) {
+      const target =
+        e.key === "ArrowLeft"
+          ? current.parentElement?.closest<HTMLElement>("[data-block-id]")
+          : current.querySelector<HTMLElement>("[data-block-id]");
+      if (target) {
+        e.preventDefault();
+        target.focus();
+      }
+      return;
+    }
+    if (!selection) return;
+    if (mod && key === "d") {
+      e.preventDefault();
+      ops.duplicate(selection.funcId, selection.nodeId);
+    } else if (e.key === "Delete" || e.key === "Backspace") {
+      e.preventDefault();
+      window.dispatchEvent(new CustomEvent<DeleteRequest>("strukto:request-delete", { detail: {} }));
+    } else if (e.key === "Escape") {
+      store.setSelection(null);
+    }
+  };
+
+  /* Copy / cut / paste use the clipboard events, which may read and write the
+   * system clipboard without a permission prompt. */
+  clipHandler.current = (e: ClipboardEvent) => {
+    if (isTyping(e.target) || !e.clipboardData) return;
+    // highlighted text (code panel, dialogs, …) is copied the normal way
+    if (e.type !== "paste" && !window.getSelection()?.isCollapsed) return;
+    const focus = document.activeElement;
+    if (focus && focus !== document.body && !focus.closest("[data-block-id]")) return;
+    if (e.type === "paste") {
+      const clips = resolvePaste(e.clipboardData.getData("text/plain"), store.clipboard, doc);
+      if (!clips.length) return;
+      e.preventDefault();
+      const at = insertionPoint();
+      ops.pasteClips(at.funcId, at.key, at.index, clips);
+      return;
+    }
+    if (!selection) return;
+    const fn = doc.functions[selection.funcId];
+    const node = fn ? findNode(fn.body, selection.nodeId)?.node : null;
+    if (!node) return;
+    e.preventDefault();
+    e.clipboardData.setData("text/plain", serializeClip(makeClip(doc, node)));
+    noteSystemClipboardWritten();
+    store.setClipboard(node);
+    if (e.type === "cut")
+      window.dispatchEvent(new CustomEvent<DeleteRequest>("strukto:request-delete", { detail: { cut: true } }));
+    else toast.success(t.copy);
+  };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => keyHandler.current(e);
+    const onClip = (e: ClipboardEvent) => clipHandler.current(e);
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [doc.functions, insertBlock, ops, selection, store, t]);
+    document.addEventListener("copy", onClip);
+    document.addEventListener("cut", onClip);
+    document.addEventListener("paste", onClip);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.removeEventListener("copy", onClip);
+      document.removeEventListener("cut", onClip);
+      document.removeEventListener("paste", onClip);
+    };
+  }, []);
 
   /* --------------------------------- files -------------------------------- */
+
+  const saveRef = useRef<(saveAs: boolean) => Promise<boolean>>(async () => false);
 
   /** Returns true only when the document was actually written. */
   const handleSave = async (saveAs = false): Promise<boolean> => {
@@ -285,6 +352,14 @@ export function StruktoApp() {
     }
   };
 
+  saveRef.current = handleSave;
+
+  const openFailed = (err: unknown) => {
+    if (err instanceof InvalidFileError)
+      toast.error(err.reason === "newer" ? t.newerFile : `${t.invalidFile}: ${err.message}`);
+    else toast.error(t.openFailed);
+  };
+
   const handleOpen = async () => {
     try {
       const res = await openProject();
@@ -292,23 +367,23 @@ export function StruktoApp() {
       store.replaceDoc(res.doc);
       store.setFileName(res.name);
       toast.success(res.name);
-    } catch {
-      toast.error(t.invalidFile);
+    } catch (err) {
+      openFailed(err);
     }
   };
 
-  const handleOpenRecent = async (name: string) => {
+  const handleOpenRecent = async (r: RecentFile) => {
     try {
-      const res = await openRecent(name);
+      const res = await openRecent(r.id);
       if (!res) {
-        toast.error(name);
+        toast.error(`${t.openFailed}: ${r.name}`);
         return;
       }
       store.replaceDoc(res.doc);
       store.setFileName(res.name);
       toast.success(res.name);
-    } catch {
-      toast.error(t.invalidFile);
+    } catch (err) {
+      openFailed(err);
     }
   };
 
@@ -320,28 +395,42 @@ export function StruktoApp() {
 
   /* -------------------------------- exports ------------------------------- */
 
-  const exportTargets = () => {
-    if (scope === "all" && allRef.current)
-      return Array.from(allRef.current.querySelectorAll<HTMLElement>("[data-export-surface]"));
-    // "current view" is the function in the top-most window, or main when none is open
-    if (activeFuncId !== doc.mainId) {
-      const el = allRef.current?.querySelector<HTMLElement>(
-        `[data-export-func="${CSS.escape(activeFuncId)}"]`,
-      );
-      if (el) return [el];
-    }
-    return mainRef.current ? [mainRef.current] : [];
+  /**
+   * "Current view" is the function in the top-most window (main when none is open).
+   * "Full call tree" starts there and follows its calls; functions not reached
+   * that way are appended so nothing is left out.
+   */
+  const exportFuncIds = (): string[] => {
+    if (scope === "current") return [activeFuncId];
+    const order: string[] = [];
+    const visit = (id: string) => {
+      const fn = doc.functions[id];
+      if (!fn || order.includes(id)) return;
+      order.push(id);
+      walk(fn.body, (n) => n.kind === "call" && visit(n.funcId));
+    };
+    visit(activeFuncId);
+    visit(doc.mainId);
+    Object.keys(doc.functions).forEach(visit);
+    return order;
   };
 
-  const runExport = async (fmt: "png" | "svg" | "pdf") => {
+  const runExport = async (fmt: ExportFormat) => {
     if (issues.length) toast.warning(t.issuesFound(issues.length));
-    const els = exportTargets();
-    if (!els.length) return;
     const name = (store.fileName ?? doc.name).replace(/\.stkg$/, "");
     try {
-      if (fmt === "png") await exportPng(els, name);
-      if (fmt === "svg") await exportSvg(els, name);
-      if (fmt === "pdf") await exportPdf(els, name);
+      await exportDiagram(fmt, {
+        doc,
+        funcIds: exportFuncIds(),
+        name,
+        labels: {
+          yes: t.yes,
+          no: t.no,
+          doLabel: t.doLabel,
+          whileLabel: t.whileLabel,
+          missingFunction: t.missingFunction,
+        },
+      });
     } catch {
       toast.error(t.exportFailed);
     }
@@ -363,9 +452,9 @@ export function StruktoApp() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
             <DropdownMenuItem onSelect={() => guard(handleNew)}><FilePlus2 className="size-4" />{t.newProject}</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => guard(() => void handleOpen())}><FolderOpen className="size-4" />{t.open}</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => handleSave(false)}><Save className="size-4" />{t.save}</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => handleSave(true)}>{t.saveAs}</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => guard(() => void handleOpen())}><FolderOpen className="size-4" />{t.open}<DropdownMenuShortcut>{MOD}O</DropdownMenuShortcut></DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => handleSave(false)}><Save className="size-4" />{t.save}<DropdownMenuShortcut>{MOD}S</DropdownMenuShortcut></DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => handleSave(true)}>{t.saveAs}<DropdownMenuShortcut>{MOD}⇧S</DropdownMenuShortcut></DropdownMenuItem>
             <DropdownMenuItem onSelect={() => guard(() => setShowTemplates(true))}>
               <LayoutTemplate className="size-4" />
               {t.templates}
@@ -381,8 +470,8 @@ export function StruktoApp() {
                 ) : (
                   recent.map((r) => (
                     <DropdownMenuItem
-                      key={r.name}
-                      onSelect={() => guard(() => void handleOpenRecent(r.name))}
+                      key={r.id}
+                      onSelect={() => guard(() => void handleOpenRecent(r))}
                     >
                       {r.name}
                     </DropdownMenuItem>
@@ -421,23 +510,23 @@ export function StruktoApp() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <Button variant="ghost" size="sm" disabled={!store.canUndo} onClick={store.undo}>
+        <Button variant="ghost" size="sm" disabled={!store.canUndo} onClick={store.undo} title={`${t.undo} (${MOD}Z)`} aria-label={t.undo}>
           <Undo2 className="size-4" />
         </Button>
-        <Button variant="ghost" size="sm" disabled={!store.canRedo} onClick={store.redo}>
+        <Button variant="ghost" size="sm" disabled={!store.canRedo} onClick={store.redo} title={`${t.redo} (${MOD}Y)`} aria-label={t.redo}>
           <Redo2 className="size-4" />
         </Button>
 
         <Separator orientation="vertical" className="mx-1 h-5" />
 
-        <Button variant="ghost" size="sm" onClick={() => view.zoomBy(1 / 1.2)} title={t.zoomOut}>
+        <Button variant="ghost" size="sm" onClick={() => view.zoomBy(1 / 1.2)} title={t.zoomOut} aria-label={t.zoomOut}>
           <ZoomOut className="size-4" />
         </Button>
         <span className="w-10 text-center text-xs tabular-nums">{Math.round(view.zoom * 100)}%</span>
-        <Button variant="ghost" size="sm" onClick={() => view.zoomBy(1.2)} title={t.zoomIn}>
+        <Button variant="ghost" size="sm" onClick={() => view.zoomBy(1.2)} title={t.zoomIn} aria-label={t.zoomIn}>
           <ZoomIn className="size-4" />
         </Button>
-        <Button variant="ghost" size="sm" onClick={view.reset} title={t.resetView}>
+        <Button variant="ghost" size="sm" onClick={view.reset} title={t.resetView} aria-label={t.resetView}>
           <Maximize className="size-4" />
         </Button>
         <Button variant="ghost" size="sm" onClick={view.fit} title={t.fitToView} aria-label={t.fitToView}>
@@ -446,7 +535,7 @@ export function StruktoApp() {
 
         <Separator orientation="vertical" className="mx-1 h-5" />
 
-        <Popover>
+        <Popover open={showSearch} onOpenChange={setShowSearch}>
           <PopoverTrigger asChild>
             <Button variant="ghost" size="sm" title={t.search} aria-label={t.search}>
               <Search className="size-4" />
@@ -538,7 +627,7 @@ export function StruktoApp() {
 
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="ghost" size="sm" className={cn(issues.length && "text-destructive")}>
+            <Button variant="ghost" size="sm" className={cn(issues.length && "text-destructive")} title={t.validation} aria-label={t.validation}>
               {issues.length ? <AlertTriangle className="size-4" /> : <CheckCircle2 className="size-4" />}
               <span className="ml-1 text-xs">{issues.length || ""}</span>
             </Button>
@@ -550,11 +639,18 @@ export function StruktoApp() {
             ) : (
               <ul className="max-h-64 space-y-1 overflow-auto text-sm">
                 {issues.map((i) => (
-                  <li key={`${i.nodeId}-${i.message}`} className="text-muted-foreground">
-                    <span className="text-foreground font-mono text-xs">
-                      {doc.functions[i.funcId]?.name}
-                    </span>{" "}
-                    — {t[i.message]}
+                  <li key={`${i.nodeId}-${i.message}`}>
+                    <button
+                      type="button"
+                      title={t.jumpToIssue}
+                      onClick={() => jumpTo(i.funcId, i.nodeId)}
+                      className="text-muted-foreground hover:bg-accent w-full rounded px-2 py-1 text-left"
+                    >
+                      <span className="text-foreground font-mono text-xs">
+                        {doc.functions[i.funcId]?.name}
+                      </span>{" "}
+                      — {t[i.message]}
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -597,7 +693,7 @@ export function StruktoApp() {
         <aside className="bg-sidebar text-sidebar-foreground border-sidebar-border flex w-60 shrink-0 flex-col gap-4 overflow-auto border-r p-3">
           <div>
             <p className="mb-2 text-xs font-semibold tracking-wide uppercase opacity-70">{t.blocks}</p>
-            <div className="grid gap-1">
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-1">
               {PICKER_ITEMS.map((item) => (
                 <button
                   key={item.kind}
@@ -605,11 +701,13 @@ export function StruktoApp() {
                   draggable
                   onDragStart={(e) => setPayload(e, { type: "new", kind: item.kind })}
                   onClick={() => insertBlock(item.kind)}
+                  title={`${t[item.labelKey]} (${ALT}${item.shortcut})`}
                   className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex cursor-grab items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm active:cursor-grabbing"
                 >
                   <item.icon className="size-4 shrink-0 opacity-80" />
-                  <span className="flex-1 truncate">{t[item.labelKey]}</span>
-                  <kbd className="border-sidebar-border rounded border px-1 text-[10px] opacity-60">
+                  <span className="min-w-0 flex-1 truncate">{t[item.labelKey]}</span>
+                  <kbd className="border-sidebar-border shrink-0 rounded border px-1 text-[10px] opacity-60">
+                    {ALT}
                     {item.shortcut}
                   </kbd>
                 </button>
@@ -619,7 +717,7 @@ export function StruktoApp() {
 
           <div>
             <p className="mb-2 text-xs font-semibold tracking-wide uppercase opacity-70">{t.functions}</p>
-            <div className="grid gap-1">
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-1">
               {functions.map((fn) => (
                 <div
                   key={fn.id}
@@ -697,7 +795,7 @@ export function StruktoApp() {
                 size="sm"
                 className="mt-1"
                 onClick={() => {
-                  const id = ops.createFunction(`function${functions.length}`);
+                  const id = ops.createFunction("function");
                   store.openFunction(id);
                 }}
               >
@@ -711,9 +809,13 @@ export function StruktoApp() {
           </div>
 
           <p className="text-[11px] leading-relaxed opacity-60">
-            {t.autosaved} · Ctrl/⌘ + wheel = {t.zoomIn}
+            {t.autosaved} · {t.zoomHint}
             <br />
             {t.keyboardNav}
+            <br />
+            {t.keyboardNavTree}
+            <br />
+            {t.insertShortcutHint}
             <br />
             {t.reorderCaseHint}
           </p>
@@ -722,7 +824,7 @@ export function StruktoApp() {
         {/* canvas */}
         <Canvas view={view}>
           <div onClick={() => store.setSelection(null)}>
-            <DiagramSurface ref={mainRef} funcId={doc.mainId} />
+            <DiagramSurface funcId={doc.mainId} />
           </div>
         </Canvas>
       </div>
@@ -835,16 +937,30 @@ export function StruktoApp() {
 
       <FunctionModals />
 
-      {/* offscreen surface for full call-tree export */}
-      <div ref={allRef} className="pointer-events-none fixed top-0 -left-[10000px] w-[760px]" aria-hidden>
-        <ExportOnly.Provider value>
-          {functions.map((fn) => (
-            <div key={fn.id} data-export-surface data-export-func={fn.id} className="bg-canvas p-4">
-              <DiagramSurface funcId={fn.id} />
-            </div>
-          ))}
-        </ExportOnly.Provider>
-      </div>
+      <CommandPalette
+        open={showPalette}
+        onOpenChange={setShowPalette}
+        onInsert={insertBlock}
+        commands={[
+          { id: "new", group: "file", label: t.newProject, run: () => guard(handleNew) },
+          { id: "open", group: "file", label: t.open, shortcut: `${MOD}O`, run: () => guard(() => void handleOpen()) },
+          { id: "save", group: "file", label: t.save, shortcut: `${MOD}S`, run: () => void handleSave(false) },
+          { id: "saveAs", group: "file", label: t.saveAs, run: () => void handleSave(true) },
+          { id: "png", group: "file", label: `${t.export}: ${t.exportPng}`, run: () => void runExport("png") },
+          { id: "svg", group: "file", label: `${t.export}: ${t.exportSvg}`, run: () => void runExport("svg") },
+          { id: "pdf", group: "file", label: `${t.export}: ${t.exportPdf}`, run: () => void runExport("pdf") },
+          { id: "code", group: "file", label: t.code, run: () => setShowCode(true) },
+          { id: "templates", group: "file", label: t.templates, run: () => guard(() => setShowTemplates(true)) },
+          { id: "undo", group: "view", label: t.undo, shortcut: `${MOD}Z`, run: store.undo },
+          { id: "redo", group: "view", label: t.redo, shortcut: `${MOD}Y`, run: store.redo },
+          { id: "zoomIn", group: "view", label: t.zoomIn, run: () => view.zoomBy(1.2) },
+          { id: "zoomOut", group: "view", label: t.zoomOut, run: () => view.zoomBy(1 / 1.2) },
+          { id: "fit", group: "view", label: t.fitToView, run: view.fit },
+          { id: "reset", group: "view", label: t.resetView, run: view.reset },
+          { id: "search", group: "view", label: t.search, run: () => setShowSearch(true) },
+        ]}
+      />
+
     </div>
   );
 }

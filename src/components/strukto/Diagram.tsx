@@ -1,4 +1,5 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { ChevronDown, ChevronRight, Plus, SquareFunction, Trash2 } from "lucide-react";
 import {
   AlertDialog,
@@ -15,16 +16,33 @@ import {
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
+  ContextMenuShortcut,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  makeClip,
+  readSystemClipboard,
+  resolvePaste,
+  serializeClip,
+  writeSystemClipboard,
+} from "@/lib/strukto/clipboard";
+import { callLabel } from "@/lib/strukto/render";
 import { EditableText, EditLock } from "./Editable";
 import { BlockPicker } from "./BlockPicker";
 import { useI18n } from "@/lib/strukto/i18n";
 import { childBlocks, useOps } from "@/lib/strukto/ops";
 import { useStrukto } from "@/lib/strukto/store";
 import { ROOT_LIST, countCalls, countNodes, listKey, locate, makeNode, reId } from "@/lib/strukto/model";
-import type { BlockKind, SNode, SwitchCase } from "@/lib/strukto/types";
+import type { BlockKind, SNode, StruktoDoc, SwitchCase, TerminatorVariant } from "@/lib/strukto/types";
+import { DIAG_PAD, DIAG_TEXT_RATIO, ifHeaderLayout, switchHeaderLayout } from "@/lib/strukto/geometry";
 import { cn } from "@/lib/utils";
 
 interface Ctx {
@@ -40,15 +58,20 @@ type DragPayload =
 
 const MIME = "application/x-strukto";
 
-/**
- * True inside the hidden off-screen copy used for exporting. Blocks there must not
- * show the selection or react to shortcuts, otherwise every action (e.g. Delete)
- * runs twice and exported images contain the selection ring.
- */
-export const ExportOnly = createContext(false);
-
 /* chain of inlined function ids, used to prevent infinite recursion */
 const InlineChain = createContext<string[]>([]);
+
+/**
+ * Identifies where a diagram is shown ("canvas", "window", plus the call blocks it
+ * is expanded through). The same block can be visible several times at once;
+ * only the clicked instance is selected.
+ */
+export const InstancePath = createContext("canvas");
+
+/** Payload of the "strukto:request-delete" event. */
+export interface DeleteRequest {
+  cut?: boolean;
+}
 
 export function readPayload(e: React.DragEvent): DragPayload | null {
   const raw = e.dataTransfer.getData(MIME) || e.dataTransfer.getData("text/plain");
@@ -72,6 +95,7 @@ function Gap({ funcId, keyId, index }: Ctx & { keyId: string; index: number }) {
   const [over, setOver] = useState(false);
   const [open, setOpen] = useState(false);
   const ops = useOps();
+  const { t } = useI18n();
 
   const handleInsert = (kind: BlockKind) => {
     setOpen(false);
@@ -127,9 +151,10 @@ function Gap({ funcId, keyId, index }: Ctx & { keyId: string; index: number }) {
         <PopoverTrigger asChild>
           <button
             type="button"
-            aria-label="Insert block"
+            aria-label={t.insertBlock}
+            title={t.insertBlock}
             className={cn(
-              "pointer-events-auto flex size-5 items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 shadow-sm transition-opacity hover:text-primary group-hover:opacity-100",
+              "pointer-events-auto flex size-5 items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 shadow-sm transition-opacity hover:text-primary group-hover:opacity-100 focus-visible:opacity-100",
               open && "opacity-100",
             )}
           >
@@ -147,6 +172,27 @@ function Gap({ funcId, keyId, index }: Ctx & { keyId: string; index: number }) {
 function nextFunctionName(functions: Record<string, { name: string }>) {
   const n = Object.keys(functions).length;
   return `function${n}`;
+}
+
+export const MOD = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘" : "Ctrl+";
+
+const KIND_LABEL = {
+  statement: "statement",
+  if: "ifElse",
+  while: "whileDo",
+  dowhile: "doWhile",
+  for: "forLoop",
+  switch: "switchCase",
+  call: "functionBlock",
+  terminator: "terminator",
+  comment: "comment",
+} as const;
+
+/** Short text of a block, for screen readers. */
+function blockText(n: SNode, doc: StruktoDoc): string {
+  if (n.kind === "call") return callLabel(doc, n, "?");
+  if (n.kind === "terminator") return `${n.variant} ${n.text}`.trim();
+  return ("text" in n ? n.text : "cond" in n ? n.cond : "expr" in n ? n.expr : "") || "…";
 }
 
 /* -------------------------------- sequence -------------------------------- */
@@ -179,11 +225,14 @@ export function Sequence({
 /* --------------------------------- blocks --------------------------------- */
 
 function CollapseButton({ collapsed, onToggle }: { collapsed?: boolean | undefined; onToggle: () => void }) {
+  const { t } = useI18n();
   return (
     <button
       type="button"
       onClick={onToggle}
-      aria-label={collapsed ? "Expand" : "Collapse"}
+      aria-label={collapsed ? t.expand : t.collapse}
+      aria-expanded={!collapsed}
+      title={collapsed ? t.expand : t.collapse}
       className="text-muted-foreground hover:text-primary absolute top-0.5 right-0.5 z-10 rounded p-0.5"
     >
       {collapsed ? <ChevronRight className="size-3.5" /> : <ChevronDown className="size-3.5" />}
@@ -196,11 +245,16 @@ export function BlockView({ funcId, node }: Ctx & { node: SNode }) {
   const { t } = useI18n();
   const { selection, setSelection, setClipboard, clipboard, openFunction, closeFunctionById, doc } =
     useStrukto();
+  const path = useContext(InstancePath);
+  const rootRef = useRef<HTMLDivElement>(null);
   const [confirmFn, setConfirmFn] = useState(false);
   const [confirmChildren, setConfirmChildren] = useState(false);
   const [editing, setEditing] = useState(false);
-  const exportOnly = useContext(ExportOnly);
-  const selected = !exportOnly && selection?.nodeId === node.id && selection.funcId === funcId;
+  const selected =
+    selection?.nodeId === node.id &&
+    selection.funcId === funcId &&
+    (selection.path === undefined || selection.path === path);
+  const select = () => setSelection({ funcId, nodeId: node.id, path });
   const editLock = useMemo(() => ({ editing, setEditing }), [editing]);
 
   useEffect(() => {
@@ -213,7 +267,13 @@ export function BlockView({ funcId, node }: Ctx & { node: SNode }) {
       if ("collapsed" in n) n.collapsed = !n.collapsed;
     });
 
-  const requestDelete = () => {
+  const requestDelete = (req: DeleteRequest = {}) => {
+    // cutting keeps everything the copy needs, so no questions are asked
+    if (req.cut) {
+      if (node.kind === "call") ops.removeCallBlock(funcId, node.id, "keep");
+      else ops.remove(funcId, node.id);
+      return;
+    }
     if (node.kind === "call") {
       const def = doc.functions[node.funcId];
       // Still called from elsewhere: only this block goes, the definition stays in use.
@@ -238,23 +298,58 @@ export function BlockView({ funcId, node }: Ctx & { node: SNode }) {
 
   useEffect(() => {
     if (!selected) return;
-    const handler = () => requestDelete();
+    const handler = (e: Event) => {
+      // selection without a path (e.g. from search) matches every instance: only the first acts
+      if (!selection?.path && document.querySelector(`[data-block-id="${node.id}"]`) !== rootRef.current) return;
+      requestDelete((e as CustomEvent<DeleteRequest>).detail ?? {});
+    };
     window.addEventListener("strukto:request-delete", handler);
     return () => window.removeEventListener("strukto:request-delete", handler);
   });
+
+  const copy = () => {
+    setClipboard(node);
+    void writeSystemClipboard(serializeClip(makeClip(doc, node)));
+  };
+
+  const pasteAfter = async () => {
+    const clips = resolvePaste(await readSystemClipboard(), clipboard, doc);
+    if (!clips.length) return;
+    // paste right after this block, like Ctrl+V does for the selection
+    const fn = doc.functions[funcId];
+    const at = fn ? locate(fn, node.id) : null;
+    ops.pasteClips(funcId, at?.key ?? ROOT_LIST, (at?.index ?? -1) + 1, clips);
+  };
 
   return (
     <>
       <ContextMenu>
         <ContextMenuTrigger asChild>
           <div
+            ref={rootRef}
             data-selected={selected || undefined}
             data-block-id={node.id}
             data-func-id={funcId}
             tabIndex={0}
+            role="group"
+            aria-roledescription={t.blockRole}
+            aria-label={`${t[KIND_LABEL[node.kind]]}: ${blockText(node, doc)}`}
+            aria-current={selected || undefined}
             onFocus={(e) => {
+              if (e.target !== e.currentTarget) return;
               e.stopPropagation();
-              setSelection({ funcId, nodeId: node.id });
+              select();
+            }}
+            onKeyDown={(e) => {
+              // Enter on a focused block starts editing its first text field
+              if (e.key !== "Enter" || e.target !== e.currentTarget || editing) return;
+              e.preventDefault();
+              e.stopPropagation();
+              // switch to edit mode synchronously so keys typed right after Enter land in the field
+              flushSync(() => setEditing(true));
+              const field = rootRef.current?.querySelector<HTMLTextAreaElement>("textarea");
+              field?.focus();
+              field?.select();
             }}
             draggable={!editing}
             onDragStart={(e) => {
@@ -263,7 +358,7 @@ export function BlockView({ funcId, node }: Ctx & { node: SNode }) {
             }}
             onClick={(e) => {
               e.stopPropagation();
-              setSelection({ funcId, nodeId: node.id });
+              select();
             }}
             className={cn(
               "border-line bg-block relative -mt-px border text-foreground outline-none",
@@ -291,21 +386,26 @@ export function BlockView({ funcId, node }: Ctx & { node: SNode }) {
               <ContextMenuSeparator />
             </>
           ) : null}
-          <ContextMenuItem onSelect={() => setClipboard(node)}>{t.copy}</ContextMenuItem>
+          <ContextMenuItem onSelect={copy}>
+            {t.copy}
+            <ContextMenuShortcut>{MOD}C</ContextMenuShortcut>
+          </ContextMenuItem>
           <ContextMenuItem
-            disabled={!clipboard}
             onSelect={() => {
-              if (!clipboard) return;
-              // paste right after this block, like Ctrl+V does for the selection
-              const fn = doc.functions[funcId];
-              const at = fn ? locate(fn, node.id) : null;
-              ops.insert(funcId, at?.key ?? ROOT_LIST, (at?.index ?? -1) + 1, reId(clipboard));
+              copy();
+              requestDelete({ cut: true });
             }}
           >
+            {t.cut}
+            <ContextMenuShortcut>{MOD}X</ContextMenuShortcut>
+          </ContextMenuItem>
+          <ContextMenuItem onSelect={() => void pasteAfter()}>
             {t.paste}
+            <ContextMenuShortcut>{MOD}V</ContextMenuShortcut>
           </ContextMenuItem>
           <ContextMenuItem onSelect={() => ops.duplicate(funcId, node.id)}>
             {t.duplicate}
+            <ContextMenuShortcut>{MOD}D</ContextMenuShortcut>
           </ContextMenuItem>
           {"collapsed" in node ? (
             <ContextMenuItem onSelect={toggleCollapse}>
@@ -313,8 +413,9 @@ export function BlockView({ funcId, node }: Ctx & { node: SNode }) {
             </ContextMenuItem>
           ) : null}
           <ContextMenuSeparator />
-          <ContextMenuItem className="text-destructive" onSelect={requestDelete}>
+          <ContextMenuItem className="text-destructive" onSelect={() => requestDelete()}>
             <Trash2 className="size-4" /> {t.delete}
+            <ContextMenuShortcut>Del</ContextMenuShortcut>
           </ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>
@@ -391,7 +492,6 @@ function Body({
 }: Ctx & { node: SNode; collapsed?: boolean | undefined; toggleCollapse: () => void }) {
   const ops = useOps();
   const { t } = useI18n();
-  const { doc, openFunction } = useStrukto();
 
   switch (node.kind) {
     case "statement":
@@ -419,22 +519,37 @@ function Body({
     case "terminator":
       return (
         <div className="bg-block-head flex items-center gap-2 px-2 py-1">
-          <button
-            type="button"
-            onClick={() =>
-              ops.update(funcId, node.id, (n) => {
-                if (n.kind !== "terminator") return;
-                n.variant =
-                  n.variant === "break" ? "return" : n.variant === "return" ? "continue" : "break";
-              })
-            }
-            className="border-line text-primary rounded border px-1.5 py-0.5 font-mono text-[11px] uppercase"
-          >
-            {node.variant}
-          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label={t.terminatorKind}
+                className="border-line text-primary flex items-center gap-0.5 rounded border px-1.5 py-0.5 font-mono text-[11px] uppercase"
+              >
+                {node.variant}
+                <ChevronDown className="size-3" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuRadioGroup
+                value={node.variant}
+                onValueChange={(v) =>
+                  ops.update(funcId, node.id, (n) => {
+                    if (n.kind === "terminator") n.variant = v as TerminatorVariant;
+                  })
+                }
+              >
+                {(["break", "continue", "return"] as const).map((v) => (
+                  <DropdownMenuRadioItem key={v} value={v} className="font-mono uppercase">
+                    {v}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <EditableText
             value={node.text}
-            placeholder={node.variant === "return" ? "value" : ""}
+            placeholder={node.variant === "return" ? t.returnValue : ""}
             mono
             onCommit={(v) =>
               ops.update(funcId, node.id, (n) => n.kind === "terminator" && (n.text = v))
@@ -447,64 +562,7 @@ function Body({
       return <CallBody funcId={funcId} node={node} />;
 
     case "if":
-      // Header and branches share the same two grid columns, so each diagonal
-      // is drawn inside its own column and both always meet exactly on the
-      // line that separates the true / false branches — even when one branch
-      // is much wider than the other.
-      return (
-        <div className="grid grid-cols-[auto_auto]">
-          <div className="border-line relative col-start-1 row-start-1 min-h-16 border-b">
-            <svg
-              viewBox="0 0 100 100"
-              preserveAspectRatio="none"
-              className="pointer-events-none absolute inset-0 h-full w-full"
-            >
-              <line x1="0" y1="0" x2="100" y2="100" stroke="var(--color-line)" vectorEffect="non-scaling-stroke" />
-            </svg>
-            <span className="text-muted-foreground absolute bottom-0.5 left-1.5 text-[11px]">
-              {t.yes}
-            </span>
-          </div>
-          <div className="border-line relative col-start-2 row-start-1 min-h-16 border-b">
-            <svg
-              viewBox="0 0 100 100"
-              preserveAspectRatio="none"
-              className="pointer-events-none absolute inset-0 h-full w-full"
-            >
-              <line x1="100" y1="0" x2="0" y2="100" stroke="var(--color-line)" vectorEffect="non-scaling-stroke" />
-            </svg>
-            <span className="text-muted-foreground absolute right-1.5 bottom-0.5 text-[11px]">
-              {t.no}
-            </span>
-          </div>
-          <div className="relative col-span-2 col-start-1 row-start-1 self-start">
-            <div className="mx-auto w-2/3 pt-0.5">
-              <EditableText
-                value={node.cond}
-                center
-                mono
-                placeholder={t.condition}
-                invalid={!node.cond.trim()}
-                onCommit={(v) => ops.update(funcId, node.id, (n) => n.kind === "if" && (n.cond = v))}
-              />
-            </div>
-          </div>
-          {collapsed ? (
-            <div className="col-span-2">
-              <Summary text="…" />
-            </div>
-          ) : (
-            <>
-              <div className="border-line min-w-max border-r">
-                <Sequence funcId={funcId} keyId={listKey(node.id, "then")} nodes={node.then} />
-              </div>
-              <div className="min-w-max">
-                <Sequence funcId={funcId} keyId={listKey(node.id, "else")} nodes={node.else} />
-              </div>
-            </>
-          )}
-        </div>
-      );
+      return <IfBody funcId={funcId} node={node} collapsed={collapsed} toggleCollapse={toggleCollapse} />;
 
     case "while":
     case "for":
@@ -569,33 +627,174 @@ function Body({
       );
 
     case "switch":
-      return <SwitchBody funcId={funcId} node={node} collapsed={collapsed} />;
+      return <SwitchBody funcId={funcId} node={node} collapsed={collapsed} toggleCollapse={toggleCollapse} />;
   }
+}
+
+/**
+ * Measures the given elements (layout size, unaffected by the canvas zoom) and
+ * re-measures whenever one of them resizes. Returns [w0, h0, w1, h1, …].
+ */
+function useSizes(refs: Array<React.RefObject<HTMLElement | null>>, deps: unknown[]): number[] {
+  const [sizes, setSizes] = useState<number[]>([]);
+  useLayoutEffect(() => {
+    const measure = () => {
+      const next = refs.flatMap((r) => [r.current?.offsetWidth ?? 0, r.current?.offsetHeight ?? 0]);
+      setSizes((prev) =>
+        prev.length === next.length && prev.every((v, i) => v === next[i]) ? prev : next,
+      );
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(measure);
+    refs.forEach((r) => r.current && ro.observe(r.current));
+    return () => ro.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps);
+  return sizes;
+}
+
+/**
+ * Width a diagonal header needs so that its text fits without wrapping too much:
+ * the text may use DIAG_TEXT_RATIO of the block, capped for very long conditions.
+ */
+const headerMinWidth = (naturalTextWidth: number | undefined) =>
+  naturalTextWidth ? Math.min(naturalTextWidth, 420) / DIAG_TEXT_RATIO : undefined;
+
+function IfBody({
+  funcId,
+  node,
+  collapsed,
+  toggleCollapse,
+}: Ctx & {
+  node: Extract<SNode, { kind: "if" }>;
+  collapsed?: boolean | undefined;
+  toggleCollapse: () => void;
+}) {
+  const ops = useOps();
+  const { t } = useI18n();
+  const gridRef = useRef<HTMLDivElement>(null);
+  const thenRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLDivElement>(null);
+  const natRef = useRef<HTMLSpanElement>(null);
+  const [W = 0, , thenW = 0, , textW = 0, textH = 0, natW] = useSizes(
+    [gridRef, thenRef, textRef, natRef],
+    [collapsed],
+  );
+  // the diagonals meet exactly on the line between the true and false branch
+  const split = collapsed || !thenW ? W / 2 : thenW;
+  const { height, left } = ifHeaderLayout(W, split, textW, textH, 64);
+
+  return (
+    <div ref={gridRef} className="grid grid-cols-[auto_auto]" style={{ minWidth: headerMinWidth(natW) }}>
+      <div className="border-line relative col-span-2 border-b" style={{ height }}>
+        <svg
+          viewBox={`0 0 ${W || 1} ${height}`}
+          preserveAspectRatio="none"
+          className="pointer-events-none absolute inset-0 h-full w-full"
+        >
+          <polyline
+            points={`0,0 ${split},${height} ${W},0`}
+            fill="none"
+            stroke="var(--color-line)"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+        <span className="text-muted-foreground absolute bottom-0.5 left-1.5 text-[11px]">{t.yes}</span>
+        <span className="text-muted-foreground absolute right-1.5 bottom-0.5 text-[11px]">{t.no}</span>
+        <CollapseButton collapsed={collapsed} onToggle={toggleCollapse} />
+        {/* natural single-line width of the condition, used to size the block */}
+        <span
+          ref={natRef}
+          aria-hidden
+          className="invisible absolute top-0 left-0 px-2 font-mono text-[13px] whitespace-pre"
+        >
+          {node.cond || t.condition}
+        </span>
+        <div
+          ref={textRef}
+          className="absolute w-max"
+          style={{ top: DIAG_PAD, left, maxWidth: W ? W * DIAG_TEXT_RATIO : undefined }}
+        >
+          <EditableText
+            value={node.cond}
+            center
+            mono
+            placeholder={t.condition}
+            invalid={!node.cond.trim()}
+            onCommit={(v) => ops.update(funcId, node.id, (n) => n.kind === "if" && (n.cond = v))}
+          />
+        </div>
+      </div>
+      {collapsed ? (
+        <div className="col-span-2">
+          <Summary text="…" />
+        </div>
+      ) : (
+        <>
+          <div ref={thenRef} className="border-line min-w-max border-r">
+            <Sequence funcId={funcId} keyId={listKey(node.id, "then")} nodes={node.then} />
+          </div>
+          <div className="min-w-max">
+            <Sequence funcId={funcId} keyId={listKey(node.id, "else")} nodes={node.else} />
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
 
 function SwitchBody({
   funcId,
   node,
   collapsed,
-}: Ctx & { node: Extract<SNode, { kind: "switch" }>; collapsed?: boolean | undefined }) {
+  toggleCollapse,
+}: Ctx & {
+  node: Extract<SNode, { kind: "switch" }>;
+  collapsed?: boolean | undefined;
+  toggleCollapse: () => void;
+}) {
   const ops = useOps();
   const { t } = useI18n();
+  const [confirmCase, setConfirmCase] = useState<SwitchCase | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLDivElement>(null);
+  const natRef = useRef<HTMLSpanElement>(null);
+  const [W = 0, , textW = 0, textH = 0, natW] = useSizes([rootRef, textRef, natRef], [collapsed]);
+  const { height, left } = switchHeaderLayout(W, textW, textH, 56);
   const columns: Array<{ c: SwitchCase; isDefault: boolean }> = [
     ...node.cases.map((c) => ({ c, isDefault: false })),
     { c: node.defaultCase, isDefault: true },
   ];
 
+  const requestRemoveCase = (c: SwitchCase) => {
+    if (c.body.length) setConfirmCase(c);
+    else ops.removeCase(funcId, node.id, c.id);
+  };
+
   return (
-    <div className="relative">
-      <div className="border-line relative h-14 border-b">
+    <div ref={rootRef} className="relative" style={{ minWidth: headerMinWidth(natW) }}>
+      <div className="border-line relative border-b" style={{ height }}>
         <svg
-          viewBox="0 0 100 100"
+          viewBox={`0 0 ${W || 1} ${height}`}
           preserveAspectRatio="none"
-          className="absolute inset-0 h-full w-full"
+          className="pointer-events-none absolute inset-0 h-full w-full"
         >
-          <line x1="0" y1="0" x2="100" y2="100" stroke="var(--color-line)" vectorEffect="non-scaling-stroke" />
+          <line x1="0" y1="0" x2={W} y2={height} stroke="var(--color-line)" vectorEffect="non-scaling-stroke" />
         </svg>
-        <div className="absolute bottom-0 left-0 w-1/2 pr-6">
+        <CollapseButton collapsed={collapsed} onToggle={toggleCollapse} />
+        <span
+          ref={natRef}
+          aria-hidden
+          className="invisible absolute top-0 left-0 px-2 font-mono text-[13px] whitespace-pre"
+        >
+          {node.expr || t.switchCase}
+        </span>
+        <div
+          ref={textRef}
+          className="absolute w-max"
+          style={{ bottom: DIAG_PAD, left, maxWidth: W ? W * DIAG_TEXT_RATIO : undefined }}
+        >
           <EditableText
             value={node.expr}
             mono
@@ -605,6 +804,23 @@ function SwitchBody({
           />
         </div>
       </div>
+      <AlertDialog open={!!confirmCase} onOpenChange={(v) => !v && setConfirmCase(null)}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t.deleteCaseTitle}</AlertDialogTitle>
+            <AlertDialogDescription>{t.deleteCaseBody(confirmCase?.label ?? "")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t.cancel}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => confirmCase && ops.removeCase(funcId, node.id, confirmCase.id)}
+            >
+              {t.deleteCase}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {collapsed ? (
         <Summary text={node.cases.map((c) => c.label).join(" · ")} />
       ) : (
@@ -630,7 +846,7 @@ function SwitchBody({
                   value={c.label}
                   center
                   mono
-                  placeholder={isDefault ? t.defaultCase : "case"}
+                  placeholder={isDefault ? t.defaultCase : t.caseLabel}
                   invalid={!c.label.trim()}
                   onCommit={(v) => ops.renameCase(funcId, node.id, c.id, v)}
                 />
@@ -638,8 +854,8 @@ function SwitchBody({
                   <button
                     type="button"
                     aria-label={t.deleteCase}
-                    onClick={() => ops.removeCase(funcId, node.id, c.id)}
-                    className="text-muted-foreground hover:text-destructive mr-1 opacity-0 transition-opacity group-hover/col:opacity-100 hover:opacity-100"
+                    onClick={() => requestRemoveCase(c)}
+                    className="text-muted-foreground hover:text-destructive mr-1 opacity-0 transition-opacity group-hover/col:opacity-100 hover:opacity-100 focus-visible:opacity-100"
                   >
                     <Trash2 className="size-3" />
                   </button>
@@ -690,7 +906,7 @@ function CaseGap({ funcId, switchId, index }: Ctx & { switchId: string; index: n
         title={t.addCase}
         aria-label={t.addCase}
         onClick={() => ops.addCase(funcId, switchId, index)}
-        className="border-border bg-card text-muted-foreground hover:text-primary absolute top-1 left-0 flex size-4 items-center justify-center rounded-full border opacity-0 shadow-sm transition-opacity group-hover/gap:opacity-100"
+        className="border-border bg-card text-muted-foreground hover:text-primary absolute top-1 left-0 flex size-4 items-center justify-center rounded-full border opacity-0 shadow-sm transition-opacity group-hover/gap:opacity-100 focus-visible:opacity-100"
       >
         <Plus className="size-3" />
       </button>
@@ -705,6 +921,7 @@ function CallBody({ funcId, node }: Ctx & { node: Extract<SNode, { kind: "call" 
   const { t } = useI18n();
   const { doc, openFunction } = useStrukto();
   const chain = useContext(InlineChain);
+  const path = useContext(InstancePath);
   const def = doc.functions[node.funcId];
   const recursive = chain.includes(node.funcId);
   const expanded = !!node.expanded && !!def && !recursive;
@@ -736,13 +953,33 @@ function CallBody({ funcId, node }: Ctx & { node: Extract<SNode, { kind: "call" 
             {expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
           </button>
         ) : null}
-        <div className="flex flex-1 items-center gap-2 px-2 py-1">
-          <SquareFunction className="text-primary size-4 shrink-0" />
-          <EditableText
-            value={def?.name ?? t.missingFunction}
-            mono
-            onCommit={(v) => def && ops.renameFunction(def.id, v)}
-          />
+        <div className="flex flex-1 items-center gap-1 px-2 py-1">
+          <SquareFunction className="text-primary mr-1 size-4 shrink-0" />
+          <div className="w-max">
+            <EditableText
+              value={def?.name ?? t.missingFunction}
+              mono
+              ariaLabel={t.functionName}
+              onCommit={(v) => def && ops.renameFunction(def.id, v)}
+            />
+          </div>
+          <span className="text-muted-foreground font-mono text-[13px]">(</span>
+          <div className="w-max min-w-6">
+            <EditableText
+              value={node.args ?? ""}
+              mono
+              placeholder={def?.params ? def.params : ""}
+              ariaLabel={t.args}
+              onCommit={(v) =>
+                ops.update(funcId, node.id, (n) => {
+                  if (n.kind !== "call") return;
+                  if (v.trim()) n.args = v.trim();
+                  else delete n.args;
+                })
+              }
+            />
+          </div>
+          <span className="text-muted-foreground font-mono text-[13px]">)</span>
         </div>
         <div className="border-line w-2 shrink-0 border-l" />
       </div>
@@ -751,7 +988,9 @@ function CallBody({ funcId, node }: Ctx & { node: Extract<SNode, { kind: "call" 
           <div className="border-line bg-muted/40 w-2 shrink-0 border-r" />
           <div className="min-w-max flex-1">
             <InlineChain.Provider value={nextChain}>
-              <Sequence funcId={def.id} keyId={ROOT_LIST} nodes={def.body} />
+              <InstancePath.Provider value={`${path}/${node.id}`}>
+                <Sequence funcId={def.id} keyId={ROOT_LIST} nodes={def.body} />
+              </InstancePath.Provider>
             </InlineChain.Provider>
           </div>
         </div>
