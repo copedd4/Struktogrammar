@@ -1,4 +1,12 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 
 export type Lang = "en" | "de";
 
@@ -234,7 +242,8 @@ const de: Dict = {
   renameCase: "Fall umbenennen",
   deleteCase: "Fall löschen",
   deleteCaseTitle: "Fall mit Inhalt löschen?",
-  deleteCaseBody: (label: string) => `Fall „${label}“ enthält Blöcke. Sie werden ebenfalls gelöscht.`,
+  deleteCaseBody: (label: string) =>
+    `Fall „${label}“ enthält Blöcke. Sie werden ebenfalls gelöscht.`,
   defaultCase: "sonst",
   functions: "Funktionen",
   newFunction: "Neue Funktion",

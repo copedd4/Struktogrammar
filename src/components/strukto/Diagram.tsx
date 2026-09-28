@@ -1,4 +1,12 @@
-import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { flushSync } from "react-dom";
 import { ChevronDown, ChevronRight, Plus, SquareFunction, Trash2 } from "lucide-react";
 import {
@@ -40,9 +48,28 @@ import { BlockPicker } from "./BlockPicker";
 import { useI18n } from "@/lib/strukto/i18n";
 import { childBlocks, useOps } from "@/lib/strukto/ops";
 import { useStrukto } from "@/lib/strukto/store";
-import { ROOT_LIST, countCalls, countNodes, listKey, locate, makeNode, reId } from "@/lib/strukto/model";
-import type { BlockKind, SNode, StruktoDoc, SwitchCase, TerminatorVariant } from "@/lib/strukto/types";
-import { DIAG_PAD, DIAG_TEXT_RATIO, ifHeaderLayout, switchHeaderLayout } from "@/lib/strukto/geometry";
+import {
+  ROOT_LIST,
+  countCalls,
+  countNodes,
+  listKey,
+  locate,
+  makeNode,
+  reId,
+} from "@/lib/strukto/model";
+import type {
+  BlockKind,
+  SNode,
+  StruktoDoc,
+  SwitchCase,
+  TerminatorVariant,
+} from "@/lib/strukto/types";
+import {
+  DIAG_PAD,
+  DIAG_TEXT_RATIO,
+  ifHeaderLayout,
+  switchHeaderLayout,
+} from "@/lib/strukto/geometry";
 import { cn } from "@/lib/utils";
 
 interface Ctx {
@@ -174,7 +201,8 @@ function nextFunctionName(functions: Record<string, { name: string }>) {
   return `function${n}`;
 }
 
-export const MOD = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘" : "Ctrl+";
+export const MOD =
+  typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘" : "Ctrl+";
 
 const KIND_LABEL = {
   statement: "statement",
@@ -224,7 +252,13 @@ export function Sequence({
 
 /* --------------------------------- blocks --------------------------------- */
 
-function CollapseButton({ collapsed, onToggle }: { collapsed?: boolean | undefined; onToggle: () => void }) {
+function CollapseButton({
+  collapsed,
+  onToggle,
+}: {
+  collapsed?: boolean | undefined;
+  onToggle: () => void;
+}) {
   const { t } = useI18n();
   return (
     <button
@@ -300,7 +334,11 @@ export function BlockView({ funcId, node }: Ctx & { node: SNode }) {
     if (!selected) return;
     const handler = (e: Event) => {
       // selection without a path (e.g. from search) matches every instance: only the first acts
-      if (!selection?.path && document.querySelector(`[data-block-id="${node.id}"]`) !== rootRef.current) return;
+      if (
+        !selection?.path &&
+        document.querySelector(`[data-block-id="${node.id}"]`) !== rootRef.current
+      )
+        return;
       requestDelete((e as CustomEvent<DeleteRequest>).detail ?? {});
     };
     window.addEventListener("strukto:request-delete", handler);
@@ -500,7 +538,9 @@ function Body({
           value={node.text}
           placeholder={t.statementText}
           invalid={!node.text.trim()}
-          onCommit={(v) => ops.update(funcId, node.id, (n) => n.kind === "statement" && (n.text = v))}
+          onCommit={(v) =>
+            ops.update(funcId, node.id, (n) => n.kind === "statement" && (n.text = v))
+          }
         />
       );
 
@@ -511,7 +551,9 @@ function Body({
             value={node.text}
             placeholder={t.comment}
             className="italic"
-            onCommit={(v) => ops.update(funcId, node.id, (n) => n.kind === "comment" && (n.text = v))}
+            onCommit={(v) =>
+              ops.update(funcId, node.id, (n) => n.kind === "comment" && (n.text = v))
+            }
           />
         </div>
       );
@@ -562,7 +604,9 @@ function Body({
       return <CallBody funcId={funcId} node={node} />;
 
     case "if":
-      return <IfBody funcId={funcId} node={node} collapsed={collapsed} toggleCollapse={toggleCollapse} />;
+      return (
+        <IfBody funcId={funcId} node={node} collapsed={collapsed} toggleCollapse={toggleCollapse} />
+      );
 
     case "while":
     case "for":
@@ -627,7 +671,14 @@ function Body({
       );
 
     case "switch":
-      return <SwitchBody funcId={funcId} node={node} collapsed={collapsed} toggleCollapse={toggleCollapse} />;
+      return (
+        <SwitchBody
+          funcId={funcId}
+          node={node}
+          collapsed={collapsed}
+          toggleCollapse={toggleCollapse}
+        />
+      );
   }
 }
 
@@ -686,7 +737,11 @@ function IfBody({
   const { height, left } = ifHeaderLayout(W, split, textW, textH, 64);
 
   return (
-    <div ref={gridRef} className="grid grid-cols-[auto_auto]" style={{ minWidth: headerMinWidth(natW) }}>
+    <div
+      ref={gridRef}
+      className="grid grid-cols-[auto_auto]"
+      style={{ minWidth: headerMinWidth(natW) }}
+    >
       <div className="border-line relative col-span-2 border-b" style={{ height }}>
         <svg
           viewBox={`0 0 ${W || 1} ${height}`}
@@ -700,8 +755,12 @@ function IfBody({
             vectorEffect="non-scaling-stroke"
           />
         </svg>
-        <span className="text-muted-foreground absolute bottom-0.5 left-1.5 text-[11px]">{t.yes}</span>
-        <span className="text-muted-foreground absolute right-1.5 bottom-0.5 text-[11px]">{t.no}</span>
+        <span className="text-muted-foreground absolute bottom-0.5 left-1.5 text-[11px]">
+          {t.yes}
+        </span>
+        <span className="text-muted-foreground absolute right-1.5 bottom-0.5 text-[11px]">
+          {t.no}
+        </span>
         <CollapseButton collapsed={collapsed} onToggle={toggleCollapse} />
         {/* natural single-line width of the condition, used to size the block */}
         <span
@@ -780,7 +839,14 @@ function SwitchBody({
           preserveAspectRatio="none"
           className="pointer-events-none absolute inset-0 h-full w-full"
         >
-          <line x1="0" y1="0" x2={W} y2={height} stroke="var(--color-line)" vectorEffect="non-scaling-stroke" />
+          <line
+            x1="0"
+            y1="0"
+            x2={W}
+            y2={height}
+            stroke="var(--color-line)"
+            vectorEffect="non-scaling-stroke"
+          />
         </svg>
         <CollapseButton collapsed={collapsed} onToggle={toggleCollapse} />
         <span
@@ -800,7 +866,9 @@ function SwitchBody({
             mono
             placeholder={t.switchCase}
             invalid={!node.expr.trim()}
-            onCommit={(v) => ops.update(funcId, node.id, (n) => n.kind === "switch" && (n.expr = v))}
+            onCommit={(v) =>
+              ops.update(funcId, node.id, (n) => n.kind === "switch" && (n.expr = v))
+            }
           />
         </div>
       </div>
@@ -808,7 +876,9 @@ function SwitchBody({
         <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle>{t.deleteCaseTitle}</AlertDialogTitle>
-            <AlertDialogDescription>{t.deleteCaseBody(confirmCase?.label ?? "")}</AlertDialogDescription>
+            <AlertDialogDescription>
+              {t.deleteCaseBody(confirmCase?.label ?? "")}
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t.cancel}</AlertDialogCancel>
@@ -862,7 +932,11 @@ function SwitchBody({
                 ) : null}
               </div>
               <div className={cn("min-w-[9rem] flex-1", i > 0 && "border-line border-l")}>
-                <Sequence funcId={funcId} keyId={listKey(node.id, isDefault ? "default" : c.id)} nodes={c.body} />
+                <Sequence
+                  funcId={funcId}
+                  keyId={listKey(node.id, isDefault ? "default" : c.id)}
+                  nodes={c.body}
+                />
               </div>
             </div>
           ))}
@@ -879,10 +953,7 @@ function CaseGap({ funcId, switchId, index }: Ctx & { switchId: string; index: n
   const [over, setOver] = useState(false);
   return (
     <div
-      className={cn(
-        "group/gap absolute -left-2 top-0 bottom-0 z-20 w-4",
-        over && "bg-primary/30",
-      )}
+      className={cn("group/gap absolute -left-2 top-0 bottom-0 z-20 w-4", over && "bg-primary/30")}
       onDragOver={(e) => {
         const types = e.dataTransfer.types;
         if (!types.includes(MIME)) return;
@@ -950,7 +1021,11 @@ function CallBody({ funcId, node }: Ctx & { node: Extract<SNode, { kind: "call" 
             title={expanded ? t.collapse : t.expand}
             className="text-muted-foreground hover:text-primary z-10 shrink-0 self-start rounded p-0.5"
           >
-            {expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+            {expanded ? (
+              <ChevronDown className="size-3.5" />
+            ) : (
+              <ChevronRight className="size-3.5" />
+            )}
           </button>
         ) : null}
         <div className="flex flex-1 items-center gap-1 px-2 py-1">

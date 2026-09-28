@@ -17,7 +17,10 @@ export function newCase(label: string): SwitchCase {
   return { id: uid(), label, body: [] };
 }
 
-export function makeNode(kind: BlockKind, opts: { funcId?: string; variant?: TerminatorVariant } = {}): SNode {
+export function makeNode(
+  kind: BlockKind,
+  opts: { funcId?: string; variant?: TerminatorVariant } = {},
+): SNode {
   const id = uid();
   switch (kind) {
     case "statement":
@@ -177,7 +180,10 @@ export function validate(doc: StruktoDoc): Issue[] {
       const push = (message: Issue["message"]) =>
         issues.push({ funcId: fn.id, nodeId: n.id, message });
       if (n.kind === "statement" && !n.text.trim()) push("emptyStatement");
-      if ((n.kind === "if" || n.kind === "while" || n.kind === "dowhile" || n.kind === "for") && !n.cond.trim())
+      if (
+        (n.kind === "if" || n.kind === "while" || n.kind === "dowhile" || n.kind === "for") &&
+        !n.cond.trim()
+      )
         push("emptyCondition");
       if (n.kind === "switch") {
         if (!n.expr.trim()) push("emptyCondition");

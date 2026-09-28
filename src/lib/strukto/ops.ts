@@ -122,7 +122,8 @@ export function useOps() {
           const taken = new Set(hit.node.cases.map((c) => c.label.trim()));
           let label = "";
           for (let i = 0; !label || taken.has(label); i++)
-            label = String.fromCharCode(65 + (i % 26)) + (i >= 26 ? String(Math.floor(i / 26) + 1) : "");
+            label =
+              String.fromCharCode(65 + (i % 26)) + (i >= 26 ? String(Math.floor(i / 26) + 1) : "");
           hit.node.cases.splice(index, 0, newCase(label));
         }
       }, "histAddCase");
@@ -253,7 +254,6 @@ export function useOps() {
     [mutate],
   );
 
-
   /**
    * Paste clipboard blocks as one undo step. Functions the pasted call blocks
    * need but this document lacks (copied from another document) are added too.
@@ -267,8 +267,15 @@ export function useOps() {
         for (const clip of clips)
           for (const def of Object.values(clip.functions))
             if (!d.functions[def.id])
-              d.functions[def.id] = { ...structuredClone(def), name: uniqueFunctionName(d, def.name) };
-        list.splice(Math.max(0, Math.min(index, list.length)), 0, ...clips.map((c) => reId(c.node)));
+              d.functions[def.id] = {
+                ...structuredClone(def),
+                name: uniqueFunctionName(d, def.name),
+              };
+        list.splice(
+          Math.max(0, Math.min(index, list.length)),
+          0,
+          ...clips.map((c) => reId(c.node)),
+        );
       }, "histPaste");
     },
     [mutate],
@@ -282,7 +289,9 @@ export function useOps() {
       const mainFn = imported.mainId ? imported.functions[imported.mainId] : undefined;
       const skipMain =
         !!mainFn && mainFn.name.trim().toLowerCase() === "main" && mainFn.body.every(isBlank);
-      const ids = Object.keys(imported.functions).filter((id) => !(skipMain && id === imported.mainId));
+      const ids = Object.keys(imported.functions).filter(
+        (id) => !(skipMain && id === imported.mainId),
+      );
       // Imported ids may already exist in this document (e.g. importing the same code
       // twice), so every imported function gets a fresh id and its calls are rewired.
       const idMap = new Map(ids.map((id) => [id, uid()]));
@@ -399,14 +408,38 @@ export function useOps() {
       removeCallBlock,
       insertFunctionBlock,
     }),
-    [doc, insert, remove, removeKeepChildren, update, move, duplicate, moveTo, moveCase, addCase, removeCase, renameCase, createFunction, renameFunction, setSignature, deleteFunctionDefinition, deleteFunctionEverywhere, importFunctions, pasteClips, setOrphaned, removeCallBlock, insertFunctionBlock],
+    [
+      doc,
+      insert,
+      remove,
+      removeKeepChildren,
+      update,
+      move,
+      duplicate,
+      moveTo,
+      moveCase,
+      addCase,
+      removeCase,
+      renameCase,
+      createFunction,
+      renameFunction,
+      setSignature,
+      deleteFunctionDefinition,
+      deleteFunctionEverywhere,
+      importFunctions,
+      pasteClips,
+      setOrphaned,
+      removeCallBlock,
+      insertFunctionBlock,
+    ],
   );
 }
 
 /** Nested blocks directly contained in a container node, in visual order. */
 export function childBlocks(node: SNode): SNode[] {
   if (node.kind === "if") return [...node.then, ...node.else];
-  if (node.kind === "while" || node.kind === "dowhile" || node.kind === "for") return [...node.body];
+  if (node.kind === "while" || node.kind === "dowhile" || node.kind === "for")
+    return [...node.body];
   if (node.kind === "switch")
     return [...node.cases.flatMap((c) => c.body), ...node.defaultCase.body];
   return [];
@@ -422,7 +455,8 @@ function containsList(node: SNode, list: SNode[]): boolean {
       lists.push(n.defaultCase.body);
     }
     if (n.kind === "if") [...n.then, ...n.else].forEach(collect);
-    else if (n.kind === "while" || n.kind === "dowhile" || n.kind === "for") n.body.forEach(collect);
+    else if (n.kind === "while" || n.kind === "dowhile" || n.kind === "for")
+      n.body.forEach(collect);
     else if (n.kind === "switch") {
       n.cases.forEach((c) => c.body.forEach(collect));
       n.defaultCase.body.forEach(collect);

@@ -2,9 +2,10 @@ import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 /** Provided by a block: text fields are read-only until the block is put into edit mode. */
-export const EditLock = createContext<{ editing: boolean; setEditing: (v: boolean) => void } | null>(
-  null,
-);
+export const EditLock = createContext<{
+  editing: boolean;
+  setEditing: (v: boolean) => void;
+} | null>(null);
 
 export function EditableText({
   value,

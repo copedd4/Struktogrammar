@@ -57,13 +57,7 @@ export interface CommentNode {
 }
 
 export type SNode =
-  | StatementNode
-  | IfNode
-  | LoopNode
-  | SwitchNode
-  | CallNode
-  | TerminatorNode
-  | CommentNode;
+  StatementNode | IfNode | LoopNode | SwitchNode | CallNode | TerminatorNode | CommentNode;
 
 export type BlockKind = SNode["kind"];
 

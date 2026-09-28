@@ -16,12 +16,22 @@ import { cn } from "@/lib/utils";
 export interface PickerItem {
   kind: BlockKind;
   icon: typeof Type;
-  labelKey: "statement" | "ifElse" | "whileDo" | "doWhile" | "forLoop" | "switchCase" | "functionBlock" | "terminator" | "comment";
+  labelKey:
+    | "statement"
+    | "ifElse"
+    | "whileDo"
+    | "doWhile"
+    | "forLoop"
+    | "switchCase"
+    | "functionBlock"
+    | "terminator"
+    | "comment";
   shortcut?: string;
 }
 
 /** Blocks are inserted with Alt + the item's letter. */
-export const ALT = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌥" : "Alt+";
+export const ALT =
+  typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌥" : "Alt+";
 
 export const PICKER_ITEMS: PickerItem[] = [
   { kind: "statement", icon: Type, labelKey: "statement", shortcut: "S" },

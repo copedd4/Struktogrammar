@@ -243,7 +243,25 @@ export function StruktoProvider({ children }: { children: ReactNode }) {
       fileName,
       setFileName,
     }),
-    [doc, mutate, replaceDoc, undo, redo, past, future, jumpBack, jumpForward, selection, clipboard, openStack, openFunction, closeTopFunction, closeFunctionById, dirty, fileName],
+    [
+      doc,
+      mutate,
+      replaceDoc,
+      undo,
+      redo,
+      past,
+      future,
+      jumpBack,
+      jumpForward,
+      selection,
+      clipboard,
+      openStack,
+      openFunction,
+      closeTopFunction,
+      closeFunctionById,
+      dirty,
+      fileName,
+    ],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

@@ -19,10 +19,10 @@ A desktop editor for **Nassi–Shneiderman diagrams** (Struktogramme). It runs f
 
 You need **Node.js**, **Rust** and your operating system's **Tauri dependencies**.
 
-| Tool | Version | Install |
-| --- | --- | --- |
+| Tool    | Version          | Install                                  |
+| ------- | ---------------- | ---------------------------------------- |
 | Node.js | 20.19+ or 22.12+ | <https://nodejs.org> (npm comes with it) |
-| Rust | stable, 1.77.2+ | <https://rustup.rs> |
+| Rust    | stable, 1.77.2+  | <https://rustup.rs>                      |
 
 ### Windows
 
@@ -67,11 +67,11 @@ npm run tauri:build
 
 The installers end up in `src-tauri/target/release/bundle/`:
 
-| Platform | Output |
-| --- | --- |
-| Windows | `msi/*.msi` and `nsis/*-setup.exe` |
-| macOS | `macos/Struktogrammer.app` and `dmg/*.dmg` |
-| Linux | `deb/*.deb`, `rpm/*.rpm` and `appimage/*.AppImage` |
+| Platform | Output                                             |
+| -------- | -------------------------------------------------- |
+| Windows  | `msi/*.msi` and `nsis/*-setup.exe`                 |
+| macOS    | `macos/Struktogrammer.app` and `dmg/*.dmg`         |
+| Linux    | `deb/*.deb`, `rpm/*.rpm` and `appimage/*.AppImage` |
 
 To build only one format, pass it through, for example:
 
@@ -85,33 +85,33 @@ Each platform has to be built on that platform: Windows installers on Windows, m
 
 ## Scripts
 
-| Command | What it does |
-| --- | --- |
-| `npm run tauri:dev` | Run the desktop app in development mode |
-| `npm run tauri:build` | Build the release app and installers |
+| Command                   | What it does                                                                                                  |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `npm run tauri:dev`       | Run the desktop app in development mode                                                                       |
+| `npm run tauri:build`     | Build the release app and installers                                                                          |
 | `npm run tauri -- <args>` | Any other [Tauri CLI](https://v2.tauri.app/reference/cli/) command, e.g. `npm run tauri -- icon app-icon.png` |
-| `npm run build` | Type-check and build only the frontend into `dist/` |
-| `npm run lint` | ESLint and Prettier checks |
-| `npm run format` | Format all files with Prettier |
+| `npm run build`           | Type-check and build only the frontend into `dist/`                                                           |
+| `npm run lint`            | ESLint and Prettier checks                                                                                    |
+| `npm run format`          | Format all files with Prettier                                                                                |
 
 ## Keyboard shortcuts
 
 `Ctrl` is `⌘` on macOS.
 
-| Keys | Action |
-| --- | --- |
+| Keys                                                        | Action                                                                               |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | `Alt` + `S` / `I` / `W` / `D` / `F` / `C` / `M` / `B` / `K` | Insert statement / if / while / do-while / for / switch / function / break / comment |
-| `Enter` | Edit the selected block |
-| `↑` `↓` | Previous / next block |
-| `←` `→` | Enclosing / first nested block |
-| `Ctrl` + `C` / `X` / `V` | Copy / cut / paste blocks |
-| `Ctrl` + `D` | Duplicate |
-| `Delete` | Delete the selected block |
-| `Ctrl` + `Z` / `Ctrl` + `Y` | Undo / redo |
-| `Ctrl` + `S` (`+ Shift`) | Save (save as) |
-| `Ctrl` + `O` | Open |
-| `Ctrl` + `K` | Command palette |
-| `Ctrl` + mouse wheel | Zoom |
+| `Enter`                                                     | Edit the selected block                                                              |
+| `↑` `↓`                                                     | Previous / next block                                                                |
+| `←` `→`                                                     | Enclosing / first nested block                                                       |
+| `Ctrl` + `C` / `X` / `V`                                    | Copy / cut / paste blocks                                                            |
+| `Ctrl` + `D`                                                | Duplicate                                                                            |
+| `Delete`                                                    | Delete the selected block                                                            |
+| `Ctrl` + `Z` / `Ctrl` + `Y`                                 | Undo / redo                                                                          |
+| `Ctrl` + `S` (`+ Shift`)                                    | Save (save as)                                                                       |
+| `Ctrl` + `O`                                                | Open                                                                                 |
+| `Ctrl` + `K`                                                | Command palette                                                                      |
+| `Ctrl` + mouse wheel                                        | Zoom                                                                                 |
 
 ## Project structure
 
@@ -143,7 +143,11 @@ A project is a JSON document:
   "name": "Factorial",
   "mainId": "a1b2c3",
   "functions": {
-    "a1b2c3": { "id": "a1b2c3", "name": "main", "body": [ { "kind": "statement", "id": "x1", "text": "read n" } ] }
+    "a1b2c3": {
+      "id": "a1b2c3",
+      "name": "main",
+      "body": [{ "kind": "statement", "id": "x1", "text": "read n" }]
+    }
   }
 }
 ```

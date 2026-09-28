@@ -48,7 +48,14 @@ export function Canvas({ view, children }: { view: CanvasView; children: ReactNo
   state.current = view;
   const pan = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
   const pointers = useRef(new Map<number, { x: number; y: number }>());
-  const pinch = useRef<{ dist: number; zoom: number; cx: number; cy: number; ox: number; oy: number } | null>(null);
+  const pinch = useRef<{
+    dist: number;
+    zoom: number;
+    cx: number;
+    cy: number;
+    ox: number;
+    oy: number;
+  } | null>(null);
 
   useEffect(() => {
     const el = ref.current;
@@ -136,7 +143,9 @@ export function Canvas({ view, children }: { view: CanvasView; children: ReactNo
       <div
         ref={view.contentRef}
         className="absolute top-0 left-0 w-max origin-top-left p-8"
-        style={{ transform: `translate(${view.offset.x}px, ${view.offset.y}px) scale(${view.zoom})` }}
+        style={{
+          transform: `translate(${view.offset.x}px, ${view.offset.y}px) scale(${view.zoom})`,
+        }}
       >
         {children}
       </div>

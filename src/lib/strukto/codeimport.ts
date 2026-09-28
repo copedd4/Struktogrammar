@@ -1,5 +1,12 @@
 import { childLists, makeNode, uid, uniqueFunctionName } from "./model";
-import type { LoopNode, SNode, StruktoDoc, StruktoFunction, SwitchCase, TerminatorVariant } from "./types";
+import type {
+  LoopNode,
+  SNode,
+  StruktoDoc,
+  StruktoFunction,
+  SwitchCase,
+  TerminatorVariant,
+} from "./types";
 
 export interface ImportResult {
   doc: StruktoDoc;
@@ -139,7 +146,10 @@ const FN_HEADER =
   /^(?:export\s+|public\s+|private\s+|protected\s+|static\s+|final\s+|async\s+)*(?:function\s+)?([\w<>[\],\s*]+?\s+)?([A-Za-z_]\w*)\s*\(([^)]*)\)\s*(?::\s*([\w<>[\]|]+))?\s*(?:const)?\s*(?:throws\s+[\w.,\s]+)?$/;
 
 /** Signature details worth keeping: parameters and a non-void return type. */
-function signatureOf(params: string, returnType: string | undefined): Pick<StruktoFunction, "params" | "returns"> {
+function signatureOf(
+  params: string,
+  returnType: string | undefined,
+): Pick<StruktoFunction, "params" | "returns"> {
   const out: Pick<StruktoFunction, "params" | "returns"> = {};
   const p = params.trim();
   if (p && p !== "void" && !/^String\s*\[\]\s*\w+$|^String\s+\w+\s*\[\]$/.test(p)) out.params = p;
@@ -148,7 +158,17 @@ function signatureOf(params: string, returnType: string | undefined): Pick<Struk
   return out;
 }
 
-const KEYWORDS = new Set(["if", "else", "while", "for", "switch", "do", "return", "catch", "class"]);
+const KEYWORDS = new Set([
+  "if",
+  "else",
+  "while",
+  "for",
+  "switch",
+  "do",
+  "return",
+  "catch",
+  "class",
+]);
 
 interface CParser {
   toks: string[];
@@ -307,7 +327,12 @@ function parseChunk(
       return null;
     }
     // a prototype such as `int add(int a, int b);` declares, it does not run anything
-    if (typePrefix && !/^(return|new|await|else)$/.test(typePrefix) && /^\w/.test(params.trim() || "x") && names.has(name.toLowerCase()))
+    if (
+      typePrefix &&
+      !/^(return|new|await|else)$/.test(typePrefix) &&
+      /^\w/.test(params.trim() || "x") &&
+      names.has(name.toLowerCase())
+    )
       return null;
   }
   if (/\bclass\b/.test(tok) && p.toks[p.i] === "{") return parseBraced(p, names, fns);
@@ -375,7 +400,10 @@ function parsePyBlock(
     let m: RegExpExecArray | null;
     if ((m = /^(?:async\s+)?def\s+(\w+)\s*\(([^)]*)\)\s*(?:->\s*(.+?))?\s*:$/.exec(text))) {
       const name = m[1]!;
-      const sig = signatureOf((m[2] ?? "").replace(/\bself\s*,?\s*/, ""), m[3] === "None" ? undefined : m[3]);
+      const sig = signatureOf(
+        (m[2] ?? "").replace(/\bself\s*,?\s*/, ""),
+        m[3] === "None" ? undefined : m[3],
+      );
       const body = block();
       const existing = fns.find((f) => f.name === name);
       if (existing) Object.assign(existing, { body }, sig);
@@ -392,7 +420,11 @@ function parsePyBlock(
       node.then = block();
       // each `elif` nests into the else-branch of the previous one: if / else(if / else(if …))
       let tail = node;
-      while (i < lines.length && lines[i]!.indent === indent && /^elif\s+(.+):$/.test(lines[i]!.text)) {
+      while (
+        i < lines.length &&
+        lines[i]!.indent === indent &&
+        /^elif\s+(.+):$/.test(lines[i]!.text)
+      ) {
         const em = /^elif\s+(.+):$/.exec(lines[i]!.text)!;
         const inner = makeNode("if") as Extract<SNode, { kind: "if" }>;
         inner.cond = em[1]!.trim();
@@ -471,7 +503,8 @@ const looksPython = (src: string) =>
 
 function collectNames(src: string): string[] {
   const names: string[] = [];
-  const re = /(?:^|\n)\s*(?:export\s+|public\s+|private\s+|protected\s+|static\s+|final\s+|async\s+)*(?:function|def|void|int|float|double|char|bool|boolean|long|short|String)\s+([A-Za-z_]\w*)\s*\(/g;
+  const re =
+    /(?:^|\n)\s*(?:export\s+|public\s+|private\s+|protected\s+|static\s+|final\s+|async\s+)*(?:function|def|void|int|float|double|char|bool|boolean|long|short|String)\s+([A-Za-z_]\w*)\s*\(/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(src))) if (!names.includes(m[1]!)) names.push(m[1]!);
   return names;
@@ -521,7 +554,9 @@ export function importCode(src: string, docName = "Imported"): ImportResult {
   // Calls to functions that were declared (e.g. a prototype) but never defined
   // become plain statements, and their names are reported to the user.
   const known = new Set(Object.keys(doc.functions));
-  const nameOf = new Map([...names].map(([lower, id]) => [id, declared.find((d) => d.toLowerCase() === lower) ?? lower]));
+  const nameOf = new Map(
+    [...names].map(([lower, id]) => [id, declared.find((d) => d.toLowerCase() === lower) ?? lower]),
+  );
   Object.values(doc.functions).forEach((fn) => {
     const fix = (list: SNode[]) => {
       list.forEach((n, i) => {

@@ -54,7 +54,10 @@ export const templates: Template[] = [
         st("read n"),
         iff(
           "n < 0",
-          [st('output "invalid input"'), { kind: "terminator", id: uid(), variant: "return", text: "-1" }],
+          [
+            st('output "invalid input"'),
+            { kind: "terminator", id: uid(), variant: "return", text: "-1" },
+          ],
           [
             st("result ← 1"),
             loop("for", "i ← 2 to n", [st("result ← result * i")]),

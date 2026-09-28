@@ -44,7 +44,13 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import {
   DropdownMenuCheckboxItem,
   DropdownMenuSub,
@@ -60,13 +66,34 @@ import { CodePanel } from "./CodePanel";
 import { ALT, PICKER_ITEMS } from "./BlockPicker";
 import { MOD, setPayload, type DeleteRequest } from "./Diagram";
 import { CommandPalette } from "./CommandPalette";
-import { makeClip, noteSystemClipboardWritten, resolvePaste, serializeClip } from "@/lib/strukto/clipboard";
+import {
+  makeClip,
+  noteSystemClipboardWritten,
+  resolvePaste,
+  serializeClip,
+} from "@/lib/strukto/clipboard";
 import { useI18n, type Lang } from "@/lib/strukto/i18n";
 import { useStrukto } from "@/lib/strukto/store";
 import { useOps } from "@/lib/strukto/ops";
 import { THEMES, THEME_STORAGE_KEY, applyTheme, type ThemeId } from "@/lib/strukto/themes";
-import { ROOT_LIST, callsFunction, emptyDoc, findNode, locate, makeNode, validate, walk } from "@/lib/strukto/model";
-import { hasHandle, openProject, openRecent, resetHandle, saveProject, saveToHandle } from "@/lib/strukto/fileio";
+import {
+  ROOT_LIST,
+  callsFunction,
+  emptyDoc,
+  findNode,
+  locate,
+  makeNode,
+  validate,
+  walk,
+} from "@/lib/strukto/model";
+import {
+  hasHandle,
+  openProject,
+  openRecent,
+  resetHandle,
+  saveProject,
+  saveToHandle,
+} from "@/lib/strukto/fileio";
 import { InvalidFileError } from "@/lib/strukto/schema";
 import { exportDiagram, type ExportFormat } from "@/lib/strukto/exporting";
 import type { BlockKind, SNode } from "@/lib/strukto/types";
@@ -77,7 +104,11 @@ type Scope = "current" | "all";
 /** True while the user is typing in a text field (shortcuts must not fire then). */
 const isTyping = (target: EventTarget | null) => {
   const el = target as HTMLElement | null;
-  return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable) && !(el as HTMLTextAreaElement).readOnly;
+  return (
+    !!el &&
+    (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable) &&
+    !(el as HTMLTextAreaElement).readOnly
+  );
 };
 
 export function StruktoApp() {
@@ -168,7 +199,8 @@ export function StruktoApp() {
     const walkNodes = (funcId: string, fnName: string, nodes: SNode[]) => {
       for (const n of nodes) {
         const text = textOf(n);
-        if (text && text.toLowerCase().includes(q)) out.push({ funcId, nodeId: n.id, text, fnName });
+        if (text && text.toLowerCase().includes(q))
+          out.push({ funcId, nodeId: n.id, text, fnName });
         if (n.kind === "if") {
           walkNodes(funcId, fnName, n.then);
           walkNodes(funcId, fnName, n.else);
@@ -203,7 +235,11 @@ export function StruktoApp() {
       const at = fn ? locate(fn, selection.nodeId) : null;
       if (at) return { funcId: selection.funcId, key: at.key, index: at.index + 1 };
     }
-    return { funcId: activeFuncId, key: ROOT_LIST, index: doc.functions[activeFuncId]?.body.length ?? 0 };
+    return {
+      funcId: activeFuncId,
+      key: ROOT_LIST,
+      index: doc.functions[activeFuncId]?.body.length ?? 0,
+    };
   };
 
   // Handlers read the latest render's state through this ref, so the listeners
@@ -254,7 +290,9 @@ export function StruktoApp() {
       }
       return;
     }
-    const current = (document.activeElement as HTMLElement | null)?.closest<HTMLElement>("[data-block-id]");
+    const current = (document.activeElement as HTMLElement | null)?.closest<HTMLElement>(
+      "[data-block-id]",
+    );
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       const blocks = Array.from(document.querySelectorAll<HTMLElement>("[data-block-id]")).filter(
         (el) => el.offsetParent !== null,
@@ -262,7 +300,8 @@ export function StruktoApp() {
       if (!blocks.length) return;
       e.preventDefault();
       const i = current ? blocks.indexOf(current) : -1;
-      const next = i < 0 ? 0 : (i + (e.key === "ArrowDown" ? 1 : -1) + blocks.length) % blocks.length;
+      const next =
+        i < 0 ? 0 : (i + (e.key === "ArrowDown" ? 1 : -1) + blocks.length) % blocks.length;
       blocks[next]?.focus();
       return;
     }
@@ -284,7 +323,9 @@ export function StruktoApp() {
       ops.duplicate(selection.funcId, selection.nodeId);
     } else if (e.key === "Delete" || e.key === "Backspace") {
       e.preventDefault();
-      window.dispatchEvent(new CustomEvent<DeleteRequest>("strukto:request-delete", { detail: {} }));
+      window.dispatchEvent(
+        new CustomEvent<DeleteRequest>("strukto:request-delete", { detail: {} }),
+      );
     } else if (e.key === "Escape") {
       store.setSelection(null);
     }
@@ -315,7 +356,9 @@ export function StruktoApp() {
     noteSystemClipboardWritten();
     store.setClipboard(node);
     if (e.type === "cut")
-      window.dispatchEvent(new CustomEvent<DeleteRequest>("strukto:request-delete", { detail: { cut: true } }));
+      window.dispatchEvent(
+        new CustomEvent<DeleteRequest>("strukto:request-delete", { detail: { cut: true } }),
+      );
     else toast.success(t.copy);
   };
 
@@ -448,18 +491,37 @@ export function StruktoApp() {
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm">{t.file}</Button>
+            <Button variant="ghost" size="sm">
+              {t.file}
+            </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
-            <DropdownMenuItem onSelect={() => guard(handleNew)}><FilePlus2 className="size-4" />{t.newProject}</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => guard(() => void handleOpen())}><FolderOpen className="size-4" />{t.open}<DropdownMenuShortcut>{MOD}O</DropdownMenuShortcut></DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => handleSave(false)}><Save className="size-4" />{t.save}<DropdownMenuShortcut>{MOD}S</DropdownMenuShortcut></DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => handleSave(true)}>{t.saveAs}<DropdownMenuShortcut>{MOD}⇧S</DropdownMenuShortcut></DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => guard(handleNew)}>
+              <FilePlus2 className="size-4" />
+              {t.newProject}
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => guard(() => void handleOpen())}>
+              <FolderOpen className="size-4" />
+              {t.open}
+              <DropdownMenuShortcut>{MOD}O</DropdownMenuShortcut>
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => handleSave(false)}>
+              <Save className="size-4" />
+              {t.save}
+              <DropdownMenuShortcut>{MOD}S</DropdownMenuShortcut>
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => handleSave(true)}>
+              {t.saveAs}
+              <DropdownMenuShortcut>{MOD}⇧S</DropdownMenuShortcut>
+            </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => guard(() => setShowTemplates(true))}>
               <LayoutTemplate className="size-4" />
               {t.templates}
             </DropdownMenuItem>
-            <DropdownMenuCheckboxItem checked={diskAutosave} onCheckedChange={(v) => setDiskAutosave(!!v)}>
+            <DropdownMenuCheckboxItem
+              checked={diskAutosave}
+              onCheckedChange={(v) => setDiskAutosave(!!v)}
+            >
               {t.autosaveDisk}
             </DropdownMenuCheckboxItem>
             <DropdownMenuSub>
@@ -510,26 +572,66 @@ export function StruktoApp() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <Button variant="ghost" size="sm" disabled={!store.canUndo} onClick={store.undo} title={`${t.undo} (${MOD}Z)`} aria-label={t.undo}>
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={!store.canUndo}
+          onClick={store.undo}
+          title={`${t.undo} (${MOD}Z)`}
+          aria-label={t.undo}
+        >
           <Undo2 className="size-4" />
         </Button>
-        <Button variant="ghost" size="sm" disabled={!store.canRedo} onClick={store.redo} title={`${t.redo} (${MOD}Y)`} aria-label={t.redo}>
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={!store.canRedo}
+          onClick={store.redo}
+          title={`${t.redo} (${MOD}Y)`}
+          aria-label={t.redo}
+        >
           <Redo2 className="size-4" />
         </Button>
 
         <Separator orientation="vertical" className="mx-1 h-5" />
 
-        <Button variant="ghost" size="sm" onClick={() => view.zoomBy(1 / 1.2)} title={t.zoomOut} aria-label={t.zoomOut}>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => view.zoomBy(1 / 1.2)}
+          title={t.zoomOut}
+          aria-label={t.zoomOut}
+        >
           <ZoomOut className="size-4" />
         </Button>
-        <span className="w-10 text-center text-xs tabular-nums">{Math.round(view.zoom * 100)}%</span>
-        <Button variant="ghost" size="sm" onClick={() => view.zoomBy(1.2)} title={t.zoomIn} aria-label={t.zoomIn}>
+        <span className="w-10 text-center text-xs tabular-nums">
+          {Math.round(view.zoom * 100)}%
+        </span>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => view.zoomBy(1.2)}
+          title={t.zoomIn}
+          aria-label={t.zoomIn}
+        >
           <ZoomIn className="size-4" />
         </Button>
-        <Button variant="ghost" size="sm" onClick={view.reset} title={t.resetView} aria-label={t.resetView}>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={view.reset}
+          title={t.resetView}
+          aria-label={t.resetView}
+        >
           <Maximize className="size-4" />
         </Button>
-        <Button variant="ghost" size="sm" onClick={view.fit} title={t.fitToView} aria-label={t.fitToView}>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={view.fit}
+          title={t.fitToView}
+          aria-label={t.fitToView}
+        >
           <Scan className="size-4" />
         </Button>
 
@@ -568,7 +670,13 @@ export function StruktoApp() {
           </PopoverContent>
         </Popover>
 
-        <Button variant="ghost" size="sm" onClick={() => setShowCode(true)} title={t.code} aria-label={t.code}>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setShowCode(true)}
+          title={t.code}
+          aria-label={t.code}
+        >
           <Code2 className="size-4" />
         </Button>
 
@@ -589,7 +697,9 @@ export function StruktoApp() {
                     onClick={() => store.jumpBack(i)}
                     className="hover:bg-accent w-full rounded px-2 py-1 text-left"
                   >
-                    {i === 0 ? t.initialState : t[store.past[i - 1]!.label as keyof typeof t] as string}
+                    {i === 0
+                      ? t.initialState
+                      : (t[store.past[i - 1]!.label as keyof typeof t] as string)}
                   </button>
                 </li>
               ))}
@@ -627,8 +737,18 @@ export function StruktoApp() {
 
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="ghost" size="sm" className={cn(issues.length && "text-destructive")} title={t.validation} aria-label={t.validation}>
-              {issues.length ? <AlertTriangle className="size-4" /> : <CheckCircle2 className="size-4" />}
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn(issues.length && "text-destructive")}
+              title={t.validation}
+              aria-label={t.validation}
+            >
+              {issues.length ? (
+                <AlertTriangle className="size-4" />
+              ) : (
+                <CheckCircle2 className="size-4" />
+              )}
               <span className="ml-1 text-xs">{issues.length || ""}</span>
             </Button>
           </PopoverTrigger>
@@ -661,7 +781,9 @@ export function StruktoApp() {
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" aria-label={t.theme}><Palette className="size-4" /></Button>
+            <Button variant="ghost" size="sm" aria-label={t.theme}>
+              <Palette className="size-4" />
+            </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>{t.theme}</DropdownMenuLabel>
@@ -677,7 +799,9 @@ export function StruktoApp() {
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" aria-label={t.language}><Languages className="size-4" /> {lang.toUpperCase()}</Button>
+            <Button variant="ghost" size="sm" aria-label={t.language}>
+              <Languages className="size-4" /> {lang.toUpperCase()}
+            </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuRadioGroup value={lang} onValueChange={(v) => setLang(v as Lang)}>
@@ -692,7 +816,9 @@ export function StruktoApp() {
         {/* palette */}
         <aside className="bg-sidebar text-sidebar-foreground border-sidebar-border flex w-60 shrink-0 flex-col gap-4 overflow-auto border-r p-3">
           <div>
-            <p className="mb-2 text-xs font-semibold tracking-wide uppercase opacity-70">{t.blocks}</p>
+            <p className="mb-2 text-xs font-semibold tracking-wide uppercase opacity-70">
+              {t.blocks}
+            </p>
             <div className="grid grid-cols-[minmax(0,1fr)] gap-1">
               {PICKER_ITEMS.map((item) => (
                 <button
@@ -716,7 +842,9 @@ export function StruktoApp() {
           </div>
 
           <div>
-            <p className="mb-2 text-xs font-semibold tracking-wide uppercase opacity-70">{t.functions}</p>
+            <p className="mb-2 text-xs font-semibold tracking-wide uppercase opacity-70">
+              {t.functions}
+            </p>
             <div className="grid grid-cols-[minmax(0,1fr)] gap-1">
               {functions.map((fn) => (
                 <div
@@ -740,22 +868,26 @@ export function StruktoApp() {
                       className="bg-background text-foreground min-w-0 flex-1 rounded-md border px-2 py-1 font-mono text-sm outline-none"
                     />
                   ) : (
-                  <button
-                    type="button"
-                    draggable={fn.id !== doc.mainId}
-                    onDragStart={(e) => setPayload(e, { type: "fnref", funcId: fn.id })}
-                    onClick={() => (fn.id === doc.mainId ? store.closeTopFunction() : store.openFunction(fn.id))}
-                    onDoubleClick={(e) => {
-                      e.preventDefault();
-                      setRenameFn(fn.id);
-                    }}
-                    title={fn.name}
-                    className="flex min-w-0 flex-1 cursor-grab items-center gap-2 rounded-md px-2 py-1.5 text-left font-mono text-sm active:cursor-grabbing"
-                  >
-                    <SquareFunction className="size-4 shrink-0 opacity-80" />
-                    <span className="min-w-0 flex-1 truncate">{shortenName(fn.name)}</span>
-                    {fn.orphaned ? <span className="shrink-0 text-[10px] opacity-60">{t.orphaned}</span> : null}
-                  </button>
+                    <button
+                      type="button"
+                      draggable={fn.id !== doc.mainId}
+                      onDragStart={(e) => setPayload(e, { type: "fnref", funcId: fn.id })}
+                      onClick={() =>
+                        fn.id === doc.mainId ? store.closeTopFunction() : store.openFunction(fn.id)
+                      }
+                      onDoubleClick={(e) => {
+                        e.preventDefault();
+                        setRenameFn(fn.id);
+                      }}
+                      title={fn.name}
+                      className="flex min-w-0 flex-1 cursor-grab items-center gap-2 rounded-md px-2 py-1.5 text-left font-mono text-sm active:cursor-grabbing"
+                    >
+                      <SquareFunction className="size-4 shrink-0 opacity-80" />
+                      <span className="min-w-0 flex-1 truncate">{shortenName(fn.name)}</span>
+                      {fn.orphaned ? (
+                        <span className="shrink-0 text-[10px] opacity-60">{t.orphaned}</span>
+                      ) : null}
+                    </button>
                   )}
                   <button
                     type="button"
@@ -943,14 +1075,46 @@ export function StruktoApp() {
         onInsert={insertBlock}
         commands={[
           { id: "new", group: "file", label: t.newProject, run: () => guard(handleNew) },
-          { id: "open", group: "file", label: t.open, shortcut: `${MOD}O`, run: () => guard(() => void handleOpen()) },
-          { id: "save", group: "file", label: t.save, shortcut: `${MOD}S`, run: () => void handleSave(false) },
+          {
+            id: "open",
+            group: "file",
+            label: t.open,
+            shortcut: `${MOD}O`,
+            run: () => guard(() => void handleOpen()),
+          },
+          {
+            id: "save",
+            group: "file",
+            label: t.save,
+            shortcut: `${MOD}S`,
+            run: () => void handleSave(false),
+          },
           { id: "saveAs", group: "file", label: t.saveAs, run: () => void handleSave(true) },
-          { id: "png", group: "file", label: `${t.export}: ${t.exportPng}`, run: () => void runExport("png") },
-          { id: "svg", group: "file", label: `${t.export}: ${t.exportSvg}`, run: () => void runExport("svg") },
-          { id: "pdf", group: "file", label: `${t.export}: ${t.exportPdf}`, run: () => void runExport("pdf") },
+          {
+            id: "png",
+            group: "file",
+            label: `${t.export}: ${t.exportPng}`,
+            run: () => void runExport("png"),
+          },
+          {
+            id: "svg",
+            group: "file",
+            label: `${t.export}: ${t.exportSvg}`,
+            run: () => void runExport("svg"),
+          },
+          {
+            id: "pdf",
+            group: "file",
+            label: `${t.export}: ${t.exportPdf}`,
+            run: () => void runExport("pdf"),
+          },
           { id: "code", group: "file", label: t.code, run: () => setShowCode(true) },
-          { id: "templates", group: "file", label: t.templates, run: () => guard(() => setShowTemplates(true)) },
+          {
+            id: "templates",
+            group: "file",
+            label: t.templates,
+            run: () => guard(() => setShowTemplates(true)),
+          },
           { id: "undo", group: "view", label: t.undo, shortcut: `${MOD}Z`, run: store.undo },
           { id: "redo", group: "view", label: t.redo, shortcut: `${MOD}Y`, run: store.redo },
           { id: "zoomIn", group: "view", label: t.zoomIn, run: () => view.zoomBy(1.2) },
@@ -960,7 +1124,6 @@ export function StruktoApp() {
           { id: "search", group: "view", label: t.search, run: () => setShowSearch(true) },
         ]}
       />
-
     </div>
   );
 }
