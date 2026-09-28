@@ -295,6 +295,8 @@ function parsePyBlock(
       const node = makeNode("if") as Extract<SNode, { kind: "if" }>;
       node.cond = m[1]!.trim();
       node.then = block();
+      // each `elif` nests into the else-branch of the previous one: if / else(if / else(if …))
+      let tail = node;
       while (i < lines.length && lines[i]!.indent === indent && /^elif\s+(.+):$/.test(lines[i]!.text)) {
         const em = /^elif\s+(.+):$/.exec(lines[i]!.text)!;
         const inner = makeNode("if") as Extract<SNode, { kind: "if" }>;
@@ -303,14 +305,13 @@ function parsePyBlock(
         const r = parsePyBlock(lines, i + 1, Math.max(ci, indent + 1), names, fns);
         inner.then = r.nodes;
         i = r.next;
-        node.else = [inner];
+        tail.else = [inner];
+        tail = inner;
       }
       if (i < lines.length && lines[i]!.indent === indent && /^else\s*:$/.test(lines[i]!.text)) {
         const ci = lines[i + 1]?.indent ?? indent;
         const r = parsePyBlock(lines, i + 1, Math.max(ci, indent + 1), names, fns);
-        if (node.else.length && node.else[0]!.kind === "if")
-          (node.else[0] as Extract<SNode, { kind: "if" }>).else = r.nodes;
-        else node.else = r.nodes;
+        tail.else = r.nodes;
         i = r.next;
       }
       nodes.push(node);

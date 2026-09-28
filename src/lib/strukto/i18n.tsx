@@ -155,6 +155,9 @@ const en = {
   unsavedBody: "Your current diagram has unsaved changes. Continue without saving?",
   saveAndContinue: "Save and continue",
   discardAndContinue: "Continue without saving",
+  saveFailed: "Could not save the file",
+  invalidFile: "Invalid .stkg file",
+  exportFailed: "Export failed",
   exportNote:
     "PNG/SVG/PDF export captures the selected scope. Choose “Full call tree” to append every function diagram.",
 };
@@ -314,6 +317,9 @@ const de: Dict = {
   unsavedBody: "Das aktuelle Diagramm hat ungespeicherte Änderungen. Ohne Speichern fortfahren?",
   saveAndContinue: "Speichern und fortfahren",
   discardAndContinue: "Ohne Speichern fortfahren",
+  saveFailed: "Datei konnte nicht gespeichert werden",
+  invalidFile: "Ungültige .stkg-Datei",
+  exportFailed: "Export fehlgeschlagen",
   exportNote:
     "PNG/SVG/PDF-Export erfasst den gewählten Umfang. „Gesamter Aufrufbaum“ hängt jedes Funktionsdiagramm an.",
 };

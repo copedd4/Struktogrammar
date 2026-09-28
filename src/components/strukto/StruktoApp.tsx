@@ -57,7 +57,7 @@ import { DiagramSurface } from "./DiagramSurface";
 import { FunctionModals } from "./FunctionModal";
 import { CodePanel } from "./CodePanel";
 import { PICKER_ITEMS } from "./BlockPicker";
-import { setPayload } from "./Diagram";
+import { ExportOnly, setPayload } from "./Diagram";
 import { useI18n, type Lang } from "@/lib/strukto/i18n";
 import { useStrukto } from "@/lib/strukto/store";
 import { useOps } from "@/lib/strukto/ops";
@@ -271,14 +271,17 @@ export function StruktoApp() {
 
   /* --------------------------------- files -------------------------------- */
 
-  const handleSave = async (saveAs = false) => {
+  /** Returns true only when the document was actually written. */
+  const handleSave = async (saveAs = false): Promise<boolean> => {
     try {
       const name = await saveProject(doc, store.fileName ?? doc.name, saveAs);
       store.setFileName(name);
       store.markSaved();
       toast.success(`${t.saved}: ${name}`);
-    } catch {
-      /* cancelled */
+      return true;
+    } catch (err) {
+      if ((err as DOMException)?.name !== "AbortError") toast.error(t.saveFailed);
+      return false;
     }
   };
 
@@ -290,7 +293,7 @@ export function StruktoApp() {
       store.setFileName(res.name);
       toast.success(res.name);
     } catch {
-      toast.error("Invalid .stkg file");
+      toast.error(t.invalidFile);
     }
   };
 
@@ -305,7 +308,7 @@ export function StruktoApp() {
       store.setFileName(res.name);
       toast.success(res.name);
     } catch {
-      toast.error("Invalid .stkg file");
+      toast.error(t.invalidFile);
     }
   };
 
@@ -320,6 +323,13 @@ export function StruktoApp() {
   const exportTargets = () => {
     if (scope === "all" && allRef.current)
       return Array.from(allRef.current.querySelectorAll<HTMLElement>("[data-export-surface]"));
+    // "current view" is the function in the top-most window, or main when none is open
+    if (activeFuncId !== doc.mainId) {
+      const el = allRef.current?.querySelector<HTMLElement>(
+        `[data-export-func="${CSS.escape(activeFuncId)}"]`,
+      );
+      if (el) return [el];
+    }
     return mainRef.current ? [mainRef.current] : [];
   };
 
@@ -333,7 +343,7 @@ export function StruktoApp() {
       if (fmt === "svg") await exportSvg(els, name);
       if (fmt === "pdf") await exportPdf(els, name);
     } catch {
-      toast.error("Export failed");
+      toast.error(t.exportFailed);
     }
   };
 
@@ -799,8 +809,8 @@ export function StruktoApp() {
               onClick={async () => {
                 const action = pending;
                 setPending(null);
-                await handleSave(false);
-                action?.();
+                // only continue when the save really happened (not cancelled / failed)
+                if (await handleSave(false)) action?.();
               }}
             >
               <Save className="size-4" />
@@ -827,11 +837,13 @@ export function StruktoApp() {
 
       {/* offscreen surface for full call-tree export */}
       <div ref={allRef} className="pointer-events-none fixed top-0 -left-[10000px] w-[760px]" aria-hidden>
-        {functions.map((fn) => (
-          <div key={fn.id} data-export-surface className="bg-canvas p-4">
-            <DiagramSurface funcId={fn.id} />
-          </div>
-        ))}
+        <ExportOnly.Provider value>
+          {functions.map((fn) => (
+            <div key={fn.id} data-export-surface data-export-func={fn.id} className="bg-canvas p-4">
+              <DiagramSurface funcId={fn.id} />
+            </div>
+          ))}
+        </ExportOnly.Provider>
       </div>
     </div>
   );

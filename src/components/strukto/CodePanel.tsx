@@ -73,7 +73,8 @@ export function CodePanel({
         setSource("");
         toast.success(t.codeImportedFunctions);
       } else {
-        store.replaceDoc(next);
+        // same file, so the import stays undoable and counts as an unsaved change
+        store.replaceDoc(next, { keepHistory: true, dirty: true });
         onOpenChange(false);
         toast.success(t.codeImported);
       }

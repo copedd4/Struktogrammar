@@ -152,6 +152,17 @@ export function callsFunction(doc: StruktoDoc, funcId: string): string[] {
   return users;
 }
 
+/** Number of call blocks (in any function) that reference `funcId`. */
+export function countCalls(doc: StruktoDoc, funcId: string): number {
+  let c = 0;
+  Object.values(doc.functions).forEach((f) =>
+    walk(f.body, (n) => {
+      if (n.kind === "call" && n.funcId === funcId) c++;
+    }),
+  );
+  return c;
+}
+
 export interface Issue {
   funcId: string;
   nodeId: string;

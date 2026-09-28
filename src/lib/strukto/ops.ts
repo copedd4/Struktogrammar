@@ -1,5 +1,16 @@
 import { useCallback, useMemo } from "react";
-import { findNode, makeNode, newCase, newFunction, reId, resolveList, uniqueFunctionName } from "./model";
+import {
+  findNode,
+  makeNode,
+  newCase,
+  countCalls,
+  newFunction,
+  reId,
+  resolveList,
+  uid,
+  uniqueFunctionName,
+  walk,
+} from "./model";
 import { useStrukto } from "./store";
 import type { SNode, StruktoDoc } from "./types";
 
@@ -174,6 +185,28 @@ export function useOps() {
     [mutate],
   );
 
+  /**
+   * Remove a call block and decide what happens to its definition, as one undo step.
+   * The definition is only orphaned / deleted when no other call block still uses it.
+   */
+  const removeCallBlock = useCallback(
+    (funcId: string, nodeId: string, definition: "keep" | "orphan" | "delete") => {
+      mutate((d) => {
+        const fn = d.functions[funcId];
+        if (!fn) return;
+        const hit = findNode(fn.body, nodeId);
+        if (!hit || hit.node.kind !== "call") return;
+        const defId = hit.node.funcId;
+        hit.list.splice(hit.index, 1);
+        const def = d.functions[defId];
+        if (!def || definition === "keep" || countCalls(d, defId) > 0) return;
+        if (definition === "orphan") def.orphaned = true;
+        else delete d.functions[defId];
+      }, "histDelete");
+    },
+    [mutate],
+  );
+
   const setOrphaned = useCallback(
     (funcId: string, orphaned: boolean) => {
       mutate((d) => {
@@ -208,14 +241,23 @@ export function useOps() {
       const skipMain =
         !!mainFn && mainFn.name.trim().toLowerCase() === "main" && mainFn.body.every(isBlank);
       const ids = Object.keys(imported.functions).filter((id) => !(skipMain && id === imported.mainId));
+      // Imported ids may already exist in this document (e.g. importing the same code
+      // twice), so every imported function gets a fresh id and its calls are rewired.
+      const idMap = new Map(ids.map((id) => [id, uid()]));
       mutate((d) => {
         for (const id of ids) {
           const fn = imported.functions[id];
           if (!fn) continue;
-          d.functions[id] = { ...fn, name: uniqueFunctionName(d, fn.name) };
+          const body = structuredClone(fn.body);
+          walk(body, (n) => {
+            if (n.kind === "call") n.funcId = idMap.get(n.funcId) ?? n.funcId;
+          });
+          const newId = idMap.get(id)!;
+          d.functions[newId] = { ...fn, id: newId, body, name: uniqueFunctionName(d, fn.name) };
         }
       }, "histNewFunction");
-      onDone?.((skipMain ? null : imported.mainId) ?? ids[0] ?? null);
+      const first = skipMain ? ids[0] : imported.mainId;
+      onDone?.((first && idMap.get(first)) ?? null);
     },
     [mutate],
   );
@@ -310,9 +352,10 @@ export function useOps() {
       deleteFunctionEverywhere,
       importFunctions,
       setOrphaned,
+      removeCallBlock,
       insertFunctionBlock,
     }),
-    [doc, insert, remove, removeKeepChildren, update, move, duplicate, moveTo, moveCase, addCase, removeCase, renameCase, createFunction, renameFunction, deleteFunctionDefinition, deleteFunctionEverywhere, importFunctions, setOrphaned, insertFunctionBlock],
+    [doc, insert, remove, removeKeepChildren, update, move, duplicate, moveTo, moveCase, addCase, removeCase, renameCase, createFunction, renameFunction, deleteFunctionDefinition, deleteFunctionEverywhere, importFunctions, setOrphaned, removeCallBlock, insertFunctionBlock],
   );
 }
 

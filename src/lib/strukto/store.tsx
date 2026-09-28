@@ -27,7 +27,7 @@ export interface HistoryEntry {
 interface StoreValue {
   doc: StruktoDoc;
   mutate: (fn: (draft: StruktoDoc) => void, label?: string) => void;
-  replaceDoc: (doc: StruktoDoc) => void;
+  replaceDoc: (doc: StruktoDoc, opts?: ReplaceOptions) => void;
   undo: () => void;
   redo: () => void;
   canUndo: boolean;
@@ -50,6 +50,18 @@ interface StoreValue {
   setFileName: (n: string | null) => void;
 }
 
+export interface ReplaceOptions {
+  /**
+   * Keep undo history so the replacement can be undone. Only use this when the
+   * new document belongs to the same file (e.g. code import); a document opened
+   * from another file must not be undoable back into the previous file's content,
+   * otherwise disk autosave could write the old diagram into the new file.
+   */
+  keepHistory?: boolean;
+  /** Whether the new document counts as unsaved. Defaults to false. */
+  dirty?: boolean;
+}
+
 const Ctx = createContext<StoreValue | null>(null);
 
 export function StruktoProvider({ children }: { children: ReactNode }) {
@@ -70,10 +82,16 @@ export function StruktoProvider({ children }: { children: ReactNode }) {
     try {
       const raw = localStorage.getItem(AUTOSAVE_KEY);
       if (raw) {
-        const parsed = JSON.parse(raw) as { doc: StruktoDoc; fileName: string | null };
+        const parsed = JSON.parse(raw) as {
+          doc: StruktoDoc;
+          fileName: string | null;
+          dirty?: boolean;
+        };
         if (parsed?.doc?.functions) {
           setDoc(parsed.doc);
           setFileName(parsed.fileName ?? null);
+          // restored work that was never written to a file is still unsaved
+          setDirty(parsed.dirty ?? false);
         }
       }
     } catch {
@@ -84,13 +102,13 @@ export function StruktoProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const t = setTimeout(() => {
       try {
-        localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ doc, fileName }));
+        localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ doc, fileName, dirty }));
       } catch {
         /* quota */
       }
     }, 300);
     return () => clearTimeout(t);
-  }, [doc, fileName]);
+  }, [doc, fileName, dirty]);
 
   const mutate = useCallback((fn: (draft: StruktoDoc) => void, label = "histEdit") => {
     setDoc((current) => {
@@ -103,15 +121,20 @@ export function StruktoProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const replaceDoc = useCallback((next: StruktoDoc) => {
-    setDoc((current) => {
-      setPast((p) => [...p.slice(-99), { doc: current, label: "histReplace" }]);
-      setFuture([]);
-      return next;
-    });
+  const replaceDoc = useCallback((next: StruktoDoc, opts: ReplaceOptions = {}) => {
+    if (opts.keepHistory) {
+      setDoc((current) => {
+        setPast((p) => [...p.slice(-99), { doc: current, label: "histReplace" }]);
+        return next;
+      });
+    } else {
+      setDoc(next);
+      setPast([]);
+    }
+    setFuture([]);
     setOpenStack([]);
     setSelection(null);
-    setDirty(false);
+    setDirty(opts.dirty ?? false);
   }, []);
 
   const undo = useCallback(() => {

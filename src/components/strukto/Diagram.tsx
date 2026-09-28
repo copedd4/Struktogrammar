@@ -23,7 +23,7 @@ import { BlockPicker } from "./BlockPicker";
 import { useI18n } from "@/lib/strukto/i18n";
 import { childBlocks, useOps } from "@/lib/strukto/ops";
 import { useStrukto } from "@/lib/strukto/store";
-import { ROOT_LIST, countNodes, listKey, makeNode, reId } from "@/lib/strukto/model";
+import { ROOT_LIST, countCalls, countNodes, listKey, locate, makeNode, reId } from "@/lib/strukto/model";
 import type { BlockKind, SNode, SwitchCase } from "@/lib/strukto/types";
 import { cn } from "@/lib/utils";
 
@@ -39,6 +39,13 @@ type DragPayload =
   | { type: "case"; funcId: string; switchId: string; caseId: string };
 
 const MIME = "application/x-strukto";
+
+/**
+ * True inside the hidden off-screen copy used for exporting. Blocks there must not
+ * show the selection or react to shortcuts, otherwise every action (e.g. Delete)
+ * runs twice and exported images contain the selection ring.
+ */
+export const ExportOnly = createContext(false);
 
 /* chain of inlined function ids, used to prevent infinite recursion */
 const InlineChain = createContext<string[]>([]);
@@ -187,11 +194,13 @@ function CollapseButton({ collapsed, onToggle }: { collapsed?: boolean | undefin
 export function BlockView({ funcId, node }: Ctx & { node: SNode }) {
   const ops = useOps();
   const { t } = useI18n();
-  const { selection, setSelection, setClipboard, clipboard, openFunction, doc } = useStrukto();
+  const { selection, setSelection, setClipboard, clipboard, openFunction, closeFunctionById, doc } =
+    useStrukto();
   const [confirmFn, setConfirmFn] = useState(false);
   const [confirmChildren, setConfirmChildren] = useState(false);
   const [editing, setEditing] = useState(false);
-  const selected = selection?.nodeId === node.id && selection.funcId === funcId;
+  const exportOnly = useContext(ExportOnly);
+  const selected = !exportOnly && selection?.nodeId === node.id && selection.funcId === funcId;
   const editLock = useMemo(() => ({ editing, setEditing }), [editing]);
 
   useEffect(() => {
@@ -207,12 +216,17 @@ export function BlockView({ funcId, node }: Ctx & { node: SNode }) {
   const requestDelete = () => {
     if (node.kind === "call") {
       const def = doc.functions[node.funcId];
-      if (def && countNodes(def) > 0) {
+      // Still called from elsewhere: only this block goes, the definition stays in use.
+      if (!def || countCalls(doc, node.funcId) > 1) {
+        ops.removeCallBlock(funcId, node.id, "keep");
+        return;
+      }
+      if (countNodes(def) > 0) {
         setConfirmFn(true);
         return;
       }
-      if (def) ops.deleteFunctionDefinition(node.funcId);
-      ops.remove(funcId, node.id);
+      closeFunctionById(node.funcId);
+      ops.removeCallBlock(funcId, node.id, "delete");
       return;
     }
     if (childBlocks(node).length > 0) {
@@ -280,7 +294,13 @@ export function BlockView({ funcId, node }: Ctx & { node: SNode }) {
           <ContextMenuItem onSelect={() => setClipboard(node)}>{t.copy}</ContextMenuItem>
           <ContextMenuItem
             disabled={!clipboard}
-            onSelect={() => clipboard && ops.insert(funcId, ROOT_LIST, 0, reId(clipboard))}
+            onSelect={() => {
+              if (!clipboard) return;
+              // paste right after this block, like Ctrl+V does for the selection
+              const fn = doc.functions[funcId];
+              const at = fn ? locate(fn, node.id) : null;
+              ops.insert(funcId, at?.key ?? ROOT_LIST, (at?.index ?? -1) + 1, reId(clipboard));
+            }}
           >
             {t.paste}
           </ContextMenuItem>
@@ -311,18 +331,15 @@ export function BlockView({ funcId, node }: Ctx & { node: SNode }) {
             <AlertDialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
               <AlertDialogAction
                 className="w-full"
-                onClick={() => {
-                  ops.setOrphaned(node.funcId, true);
-                  ops.remove(funcId, node.id);
-                }}
+                onClick={() => ops.removeCallBlock(funcId, node.id, "orphan")}
               >
                 {t.keepDefinition}
               </AlertDialogAction>
               <AlertDialogAction
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90 w-full"
                 onClick={() => {
-                  ops.deleteFunctionDefinition(node.funcId);
-                  ops.remove(funcId, node.id);
+                  closeFunctionById(node.funcId);
+                  ops.removeCallBlock(funcId, node.id, "delete");
                 }}
               >
                 {t.deleteEverything}
