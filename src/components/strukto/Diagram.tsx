@@ -135,10 +135,12 @@ function Gap({ funcId, keyId, index }: Ctx & { keyId: string; index: number }) {
 
   return (
     <div
-      className={cn(
-        "group relative z-10 -my-1 flex h-2 items-center justify-center transition-[height]",
-        (over || open) && "h-7",
-      )}
+      data-insertion-gap
+      data-gap-function={funcId}
+      data-gap-list={keyId}
+      data-gap-index={index}
+      // fixed height so nested drop targets stay separate and don't shift while dragging
+      className="group bg-block-head/40 relative z-10 flex h-3 shrink-0 items-center justify-center"
       onDragOver={(e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -399,7 +401,7 @@ export function BlockView({ funcId, node }: Ctx & { node: SNode }) {
               select();
             }}
             className={cn(
-              "border-line bg-block relative -mt-px border text-foreground outline-none",
+              "border-line bg-block relative border text-foreground outline-none",
               "focus-visible:ring-primary/70 focus-visible:z-10 focus-visible:ring-2",
               selected && "ring-primary z-10 ring-2",
               !editing && "cursor-grab active:cursor-grabbing",

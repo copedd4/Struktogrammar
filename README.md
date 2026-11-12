@@ -24,7 +24,7 @@ To build it yourself instead, read on.
 ## Features
 
 - **All structogram blocks**: statement, if/else, while, do-while, for, switch-case, function call, break/return/continue and comment.
-- **Functions as their own diagrams**, with parameters and a return type. A call can be opened in a window or expanded inline.
+- **Functions as their own diagrams**, with parameters and a return type. A call can be opened in a window, expanded inline, or dragged from the sidebar onto the canvas to edit it side by side with `main`. Functions can be renamed right in their editor.
 - **Editing**: drag and drop, insert buttons between blocks, undo/redo with a history list, search, validation, and a command palette.
 - **Copy and paste through the system clipboard**, also between documents. Blocks carry the functions they call.
 - **Export** to vector SVG, PNG or multi-page PDF, either the current diagram or the full call tree.

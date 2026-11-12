@@ -64,7 +64,7 @@ import { DiagramSurface } from "./DiagramSurface";
 import { FunctionModals } from "./FunctionModal";
 import { CodePanel } from "./CodePanel";
 import { ALT, PICKER_ITEMS } from "./BlockPicker";
-import { MOD, setPayload, type DeleteRequest } from "./Diagram";
+import { InstancePath, MOD, setPayload, type DeleteRequest } from "./Diagram";
 import { CommandPalette } from "./CommandPalette";
 import {
   makeClip,
@@ -152,7 +152,7 @@ export function StruktoApp() {
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [store.dirty]);
 
-  const activeFuncId = store.openStack.at(-1) ?? doc.mainId;
+  const activeFuncId = store.selection?.funcId ?? store.openStack.at(-1) ?? doc.mainId;
   const issues = useMemo(() => validate(doc), [doc]);
 
   useEffect(() => {
@@ -954,9 +954,28 @@ export function StruktoApp() {
         </aside>
 
         {/* canvas */}
-        <Canvas view={view}>
-          <div onClick={() => store.setSelection(null)}>
+        <Canvas
+          view={view}
+          onDropFunction={(id) => {
+            if (id !== doc.mainId && doc.functions[id]) store.dockFunction(id);
+          }}
+        >
+          <div className="flex items-start gap-8" onClick={() => store.setSelection(null)}>
             <DiagramSurface funcId={doc.mainId} />
+            {store.dockedFunctions
+              .filter((id) => id !== doc.mainId && doc.functions[id])
+              .map((id) => (
+                <InstancePath.Provider key={id} value={`dock:${id}`}>
+                  <DiagramSurface
+                    funcId={id}
+                    width={620}
+                    editableName
+                    onClose={() => store.closeFunctionById(id)}
+                  />
+                </InstancePath.Provider>
+              ))}
+            {/* empty drop area to the right, so there's always room to dock another function */}
+            <div className="min-h-60 w-60 shrink-0" aria-hidden />
           </div>
         </Canvas>
       </div>

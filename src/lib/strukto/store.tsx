@@ -48,6 +48,9 @@ interface StoreValue {
   clipboard: SNode | null;
   setClipboard: (n: SNode | null) => void;
   openStack: string[];
+  /** Functions placed on the canvas next to main for side-by-side editing. */
+  dockedFunctions: string[];
+  dockFunction: (id: string) => void;
   openFunction: (id: string) => void;
   closeTopFunction: () => void;
   closeFunctionById: (id: string) => void;
@@ -78,6 +81,7 @@ export function StruktoProvider({ children }: { children: ReactNode }) {
   const [selection, setSelection] = useState<Selection | null>(null);
   const [clipboard, setClipboard] = useState<SNode | null>(null);
   const [openStack, setOpenStack] = useState<string[]>([]);
+  const [dockedFunctions, setDockedFunctions] = useState<string[]>([]);
   const [dirty, setDirty] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
   const loaded = useRef(false);
@@ -141,6 +145,7 @@ export function StruktoProvider({ children }: { children: ReactNode }) {
     }
     setFuture([]);
     setOpenStack([]);
+    setDockedFunctions([]);
     setSelection(null);
     setDirty(opts.dirty ?? false);
   }, []);
@@ -211,11 +216,23 @@ export function StruktoProvider({ children }: { children: ReactNode }) {
     // Prevent infinite pop-up nesting: never stack the same function twice.
     setOpenStack((s) => (s.includes(id) ? s : [...s, id]));
   }, []);
-  const closeTopFunction = useCallback(() => setOpenStack((s) => s.slice(0, -1)), []);
-  const closeFunctionById = useCallback(
-    (id: string) => setOpenStack((s) => s.filter((x) => x !== id)),
+  const dockFunction = useCallback((id: string) => {
+    setDockedFunctions((s) => (s.includes(id) ? s : [...s, id]));
+    setOpenStack((s) => (s.includes(id) ? s : [...s, id]));
+  }, []);
+  const closeTopFunction = useCallback(
+    () =>
+      setOpenStack((s) => {
+        const id = s.at(-1);
+        if (id) setDockedFunctions((d) => d.filter((x) => x !== id));
+        return s.slice(0, -1);
+      }),
     [],
   );
+  const closeFunctionById = useCallback((id: string) => {
+    setOpenStack((s) => s.filter((x) => x !== id));
+    setDockedFunctions((s) => s.filter((x) => x !== id));
+  }, []);
 
   const value = useMemo<StoreValue>(
     () => ({
@@ -235,6 +252,8 @@ export function StruktoProvider({ children }: { children: ReactNode }) {
       clipboard,
       setClipboard,
       openStack,
+      dockedFunctions,
+      dockFunction,
       openFunction,
       closeTopFunction,
       closeFunctionById,
@@ -256,6 +275,8 @@ export function StruktoProvider({ children }: { children: ReactNode }) {
       selection,
       clipboard,
       openStack,
+      dockedFunctions,
+      dockFunction,
       openFunction,
       closeTopFunction,
       closeFunctionById,

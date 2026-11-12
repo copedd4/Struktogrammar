@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { readPayload } from "./Diagram";
 
 const MIN = 0.3;
 const MAX = 2.5;
@@ -42,7 +43,16 @@ export function useCanvasView() {
 
 export type CanvasView = ReturnType<typeof useCanvasView>;
 
-export function Canvas({ view, children }: { view: CanvasView; children: ReactNode }) {
+export function Canvas({
+  view,
+  children,
+  onDropFunction,
+}: {
+  view: CanvasView;
+  children: ReactNode;
+  /** Called when a function from the sidebar is dropped on empty canvas. */
+  onDropFunction?: (id: string) => void;
+}) {
   const ref = view.containerRef;
   const state = useRef(view);
   state.current = view;
@@ -95,17 +105,33 @@ export function Canvas({ view, children }: { view: CanvasView; children: ReactNo
       ref={ref}
       className="bg-canvas relative flex-1 overflow-hidden"
       style={{ touchAction: "none" }}
+      onDragOver={(e) => {
+        if ((e.target as HTMLElement).closest("[data-diagram-function]")) return;
+        if (e.dataTransfer.types.includes("application/x-strukto")) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "copy";
+        }
+      }}
+      onDrop={(e) => {
+        if ((e.target as HTMLElement).closest("[data-diagram-function]")) return;
+        const payload = readPayload(e);
+        if (payload?.type !== "fnref") return;
+        e.preventDefault();
+        onDropFunction?.(payload.funcId);
+      }}
       onPointerDown={(e) => {
         pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
         if (pointers.current.size === 2) {
           // two-finger pinch/pan start
           const [a, b] = [...pointers.current.values()];
-          const rect = ref.current!.getBoundingClientRect();
+          const container = ref.current;
+          if (!a || !b || !container) return;
+          const rect = container.getBoundingClientRect();
           pinch.current = {
-            dist: Math.hypot(a!.x - b!.x, a!.y - b!.y) || 1,
+            dist: Math.hypot(a.x - b.x, a.y - b.y) || 1,
             zoom: view.zoom,
-            cx: (a!.x + b!.x) / 2 - rect.left,
-            cy: (a!.y + b!.y) / 2 - rect.top,
+            cx: (a.x + b.x) / 2 - rect.left,
+            cy: (a.y + b.y) / 2 - rect.top,
             ox: view.offset.x,
             oy: view.offset.y,
           };
@@ -113,7 +139,9 @@ export function Canvas({ view, children }: { view: CanvasView; children: ReactNo
           return;
         }
         const touch = e.pointerType !== "mouse";
-        if (e.button !== 1 && !((e.button === 0 || touch) && e.target === e.currentTarget)) return;
+        // pan from anywhere that isn't a diagram (the content wrapper fills the gaps between them)
+        const background = !(e.target as HTMLElement).closest("[data-diagram-function]");
+        if (e.button !== 1 && !((e.button === 0 || touch) && background)) return;
         (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
         pan.current = { x: e.clientX, y: e.clientY, ox: view.offset.x, oy: view.offset.y };
       }}
@@ -122,7 +150,8 @@ export function Canvas({ view, children }: { view: CanvasView; children: ReactNo
           pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
         if (pinch.current && pointers.current.size >= 2) {
           const [a, b] = [...pointers.current.values()];
-          const dist = Math.hypot(a!.x - b!.x, a!.y - b!.y) || 1;
+          if (!a || !b) return;
+          const dist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
           const p = pinch.current;
           const next = clamp((p.zoom * dist) / p.dist, MIN, MAX);
           const k = next / p.zoom;
