@@ -8,6 +8,7 @@ import {
   type RenderColors,
   type RenderLabels,
 } from "./render";
+import { saveFile } from "./savefile";
 import type { StruktoDoc } from "./types";
 
 export type ExportFormat = "png" | "svg" | "pdf";
@@ -57,36 +58,35 @@ async function ensureFonts() {
   );
 }
 
-function download(url: string, name: string) {
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-const blobUrl = (canvas: HTMLCanvasElement) =>
-  new Promise<string>((resolve, reject) =>
-    canvas.toBlob(
-      (b) => (b ? resolve(URL.createObjectURL(b)) : reject(new Error("PNG encoding failed"))),
-      "image/png",
-    ),
+const pngBlob = (canvas: HTMLCanvasElement) =>
+  new Promise<Blob>((resolve, reject) =>
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("PNG encoding failed"))), "image/png"),
   );
 
-export async function exportDiagram(format: ExportFormat, req: ExportRequest) {
+/**
+ * Render and save the diagram. Returns the saved file name, or `null` when the
+ * user cancelled the save dialog.
+ */
+export async function exportDiagram(
+  format: ExportFormat,
+  req: ExportRequest,
+): Promise<string | null> {
   await ensureFonts();
   const colors = themeColors();
   const drawing = layoutDiagrams(req.doc, req.funcIds, colors, req.labels);
   if (format === "svg") {
     const blob = new Blob([toSvg(drawing, colors.line)], { type: "image/svg+xml;charset=utf-8" });
-    download(URL.createObjectURL(blob), `${req.name}.svg`);
-  } else if (format === "png") {
+    return saveFile(`${req.name}.svg`, blob, { name: "SVG image", extensions: ["svg"] });
+  }
+  if (format === "png") {
     // 2× for sharpness, less for huge diagrams: browsers refuse canvases above ~16k px per side
     const scale = Math.max(0.5, Math.min(2, MAX_CANVAS / Math.max(drawing.width, drawing.height)));
-    download(await blobUrl(drawToCanvas(drawing, colors.line, scale)), `${req.name}.png`);
-  } else {
-    savePdf(drawing, colors.line, req.name);
+    const blob = await pngBlob(drawToCanvas(drawing, colors.line, scale));
+    return saveFile(`${req.name}.png`, blob, { name: "PNG image", extensions: ["png"] });
   }
+  const pdf = buildPdf(drawing, colors.line);
+  if (!pdf) return null;
+  return saveFile(`${req.name}.pdf`, pdf, { name: "PDF document", extensions: ["pdf"] });
 }
 
 const PDF_MARGIN = 30;
@@ -101,7 +101,7 @@ const MAX_CANVAS = 16000;
  * than a page continue on the next one; page breaks fall between blocks
  * whenever possible instead of cutting through one.
  */
-function savePdf(d: Drawing, lineColor: string, name: string) {
+function buildPdf(d: Drawing, lineColor: string): Blob | null {
   let pdf: jsPDF | null = null;
   for (const s of d.surfaces) {
     const top = s.y - 8;
@@ -145,5 +145,5 @@ function savePdf(d: Drawing, lineColor: string, name: string) {
       y = end;
     }
   }
-  pdf?.save(`${name}.pdf`);
+  return pdf ? pdf.output("blob") : null;
 }

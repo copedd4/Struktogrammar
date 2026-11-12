@@ -462,7 +462,7 @@ export function StruktoApp() {
     if (issues.length) toast.warning(t.issuesFound(issues.length));
     const name = (store.fileName ?? doc.name).replace(/\.stkg$/, "");
     try {
-      await exportDiagram(fmt, {
+      const saved = await exportDiagram(fmt, {
         doc,
         funcIds: exportFuncIds(),
         name,
@@ -474,7 +474,9 @@ export function StruktoApp() {
           missingFunction: t.missingFunction,
         },
       });
-    } catch {
+      if (saved) toast.success(`${t.exported}: ${saved}`);
+    } catch (err) {
+      console.error(err);
       toast.error(t.exportFailed);
     }
   };

@@ -193,6 +193,7 @@ const en = {
   newerFile: "This file was created by a newer version of the editor.",
   openFailed: "Could not open the file",
   exportFailed: "Export failed",
+  exported: "Exported",
   exportNote:
     "PNG/SVG/PDF export captures the selected scope. Choose “Full call tree” to append every function diagram.",
 };
@@ -383,6 +384,7 @@ const de: Dict = {
   newerFile: "Diese Datei wurde mit einer neueren Version des Editors erstellt.",
   openFailed: "Datei konnte nicht geöffnet werden",
   exportFailed: "Export fehlgeschlagen",
+  exported: "Exportiert",
   exportNote:
     "PNG/SVG/PDF-Export erfasst den gewählten Umfang. „Gesamter Aufrufbaum“ hängt jedes Funktionsdiagramm an.",
 };

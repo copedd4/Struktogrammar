@@ -1,6 +1,7 @@
 import type { StruktoDoc } from "./types";
 import { parseDocument } from "./schema";
 import { loadHandle, rememberRecent } from "./recent";
+import { saveFile } from "./savefile";
 
 let handle: FileSystemFileHandle | null = null;
 
@@ -17,16 +18,6 @@ export function serialize(doc: StruktoDoc) {
 
 /** Parse and validate a .stkg file (throws InvalidFileError). */
 export const parse = parseDocument;
-
-function download(name: string, content: string) {
-  const blob = new Blob([content], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
 
 const isAbort = (err: unknown) => (err as DOMException)?.name === "AbortError";
 
@@ -69,8 +60,13 @@ export async function saveProject(
       return target.name;
     }
   }
-  download(fileName, serialize(doc));
-  return fileName;
+  // no File System Access API (macOS/Linux desktop app, Firefox, Safari): save dialog or download
+  const saved = await saveFile(fileName, serialize(doc), {
+    name: "Struktogramm project",
+    extensions: ["stkg"],
+  });
+  if (!saved) throw new DOMException("Save cancelled", "AbortError");
+  return saved;
 }
 
 export async function openProject(): Promise<{ doc: StruktoDoc; name: string } | null> {
